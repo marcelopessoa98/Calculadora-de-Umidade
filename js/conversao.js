@@ -1,17 +1,17 @@
 /**
  * SGI - ConcreFuji
- * Módulo de Conversão de Cargas
+ * Módulo de Conversão de Cargas e Resistência (MPa)
  */
 
-// Estado da Aplicação
-let selectedUnit = null;
-const GRAVITY_CONSTANT = 9.80665;
+// --- Estado Global da Aplicação ---
+let unidadeSelecionada = ""; // Armazena 'tf' ou 'kn'
+const CONSTANTE_GRAVIDADE = 9.80665;
 
-// Elementos do DOM
-const elements = {
+// --- Seleção de Elementos ---
+const elementos = {
   tipoCP: document.getElementById("tipoCP"),
   valorCarga: document.getElementById("valorCarga"),
-  unitBtns: document.querySelectorAll(".unit-btn"),
+  botoesUnidade: document.querySelectorAll(".unit-btn"),
   btnProcessar: document.getElementById("btnProcessar"),
   btnLimpar: document.getElementById("btnLimpar"),
   btnSalvar: document.getElementById("btnSalvar"),
@@ -23,92 +23,95 @@ const elements = {
 };
 
 // --- Inicialização de Eventos ---
-
-// Seleção de unidade (Tf ou kN) via data-attributes
-elements.unitBtns.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    selectedUnit = btn.getAttribute("data-unit");
-    updateUISelection(btn);
+document.addEventListener("DOMContentLoaded", () => {
+  // 1. Escuta cliques nos botões de unidade (Tf / kN)
+  elementos.botoesUnidade.forEach((botao) => {
+    botao.addEventListener("click", () => {
+      unidadeSelecionada = botao.getAttribute("data-unit");
+      marcarBotaoAtivo(botao);
+    });
   });
-});
 
-elements.btnProcessar.addEventListener("click", handleCalculation);
-elements.btnLimpar.addEventListener("click", resetForm);
-elements.btnSalvar.addEventListener("click", saveAsImage);
+  // 2. Escuta o clique no botão de processar
+  if (elementos.btnProcessar) {
+    elementos.btnProcessar.addEventListener("click", executarCalculos);
+  }
+
+  // 3. Escuta o botão de limpar
+  if (elementos.btnLimpar) {
+    elementos.btnLimpar.addEventListener("click", resetarInterface);
+  }
+
+  // 4. Escuta o botão de print (Salvar Imagem)
+  if (elementos.btnSalvar) {
+    elementos.btnSalvar.addEventListener("click", salvarPrint);
+  }
+});
 
 // --- Funções de Lógica ---
 
-function updateUISelection(activeBtn) {
-  elements.unitBtns.forEach((btn) => {
+function marcarBotaoAtivo(botaoAtivo) {
+  elementos.botoesUnidade.forEach((btn) => {
     btn.classList.remove("border-red-600", "text-red-600", "bg-red-50");
     btn.classList.add("border-gray-200", "text-gray-400");
   });
-  activeBtn.classList.replace("border-gray-200", "border-red-600");
-  activeBtn.classList.replace("text-gray-400", "text-red-600");
-  activeBtn.classList.add("bg-red-50");
+  botaoAtivo.classList.replace("border-gray-200", "border-red-600");
+  botaoAtivo.classList.replace("text-gray-400", "text-red-600");
+  botaoAtivo.classList.add("bg-red-50");
 }
 
-function handleCalculation() {
-  const rawValue = parseFloat(elements.valorCarga.value);
-  const areaCm2 = parseFloat(elements.tipoCP.value);
+function executarCalculos() {
+  const valorEntrada = parseFloat(elementos.valorCarga.value);
+  const areaCP = parseFloat(elementos.tipoCP.value);
 
-  if (!selectedUnit)
-    return alert("Por favor, selecione a unidade primeiro (Tf ou kN).");
-  if (!rawValue || rawValue <= 0)
+  // Validações
+  if (!unidadeSelecionada)
+    return alert("Por favor, selecione primeiro a Unidade (Tf ou kN).");
+  if (isNaN(valorEntrada) || valorEntrada <= 0)
     return alert("Insira um valor de carga válido.");
 
-  const results = calculateMetrics(rawValue, selectedUnit, areaCm2);
-  displayResults(results);
-}
+  let tf, kn, mpa;
 
-function calculateMetrics(value, unit, area) {
-  let tf, kn;
-
-  if (unit === "tf") {
-    tf = value;
-    kn = value * GRAVITY_CONSTANT;
+  // Lógica de Conversão Base
+  if (unidadeSelecionada === "tf") {
+    tf = valorEntrada;
+    kn = valorEntrada * CONSTANTE_GRAVIDADE;
   } else {
-    kn = value;
-    tf = value / GRAVITY_CONSTANT;
+    kn = valorEntrada;
+    tf = valorEntrada / CONSTANTE_GRAVIDADE;
   }
 
-  // MPa = (kN * 1000) / (Área em mm²)
-  // Área em mm² = Área em cm² * 100
-  const mpa = (kn * 1000) / (area * 100);
+  // Cálculo de MPa: Força(N) / Área(mm²)
+  // 1 kN = 1000 N | Área em mm² = Área em cm² * 100
+  mpa = (kn * 1000) / (areaCP * 100);
 
-  return { tf, kn, mpa };
+  exibirResultados(tf, kn, mpa);
 }
 
-function displayResults({ tf, kn, mpa }) {
-  elements.resTf.textContent =
-    tf.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " tf";
-  elements.resKn.textContent =
-    kn.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " kN";
-  elements.resMpa.textContent = mpa.toLocaleString("pt-BR", {
-    minimumFractionDigits: 1,
-  });
+function exibirResultados(tf, kn, mpa) {
+  // Formatação para 2 casas decimais com substituição de ponto por vírgula
+  elementos.resTf.innerText = tf.toFixed(2).replace(".", ",") + " tf";
+  elementos.resKn.innerText = kn.toFixed(2).replace(".", ",") + " kN";
+  elementos.resMpa.innerText = mpa.toFixed(2).replace(".", ",");
 
-  elements.resBox.classList.remove("hidden");
+  elementos.resBox.classList.remove("hidden");
 }
 
-function resetForm() {
-  elements.valorCarga.value = "";
-  elements.resBox.classList.add("hidden");
-  selectedUnit = null;
-  elements.unitBtns.forEach((btn) => {
+function resetarInterface() {
+  elementos.valorCarga.value = "";
+  elementos.resBox.classList.add("hidden");
+  unidadeSelecionada = "";
+  elementos.botoesUnidade.forEach((btn) => {
     btn.classList.remove("border-red-600", "text-red-600", "bg-red-50");
     btn.classList.add("border-gray-200", "text-gray-400");
   });
 }
 
-async function saveAsImage() {
+async function salvarPrint() {
   try {
-    const canvas = await html2canvas(elements.captureArea, {
-      scale: 2,
-      backgroundColor: "#f9fafb",
-    });
+    const canvas = await html2canvas(elementos.captureArea, { scale: 2 });
     const link = document.createElement("a");
-    link.download = `CONCREFUJI-ENSAIO-${Date.now()}.png`;
+    link.download = `CONCREFUJI-CALCULO-${Date.now()}.png`;
     link.href = canvas.toDataURL();
     link.click();
   } catch (err) {
