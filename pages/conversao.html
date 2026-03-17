@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conversão Técnica - ConcreFuji</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+  </head>
+  <body class="bg-gray-50 min-h-screen p-4 font-sans text-gray-900">
+    <div class="max-w-md mx-auto">
+      <a
+        href="../index.html"
+        class="inline-flex items-center mb-6 text-gray-500 hover:text-red-600 transition-colors group"
+      >
+        <i
+          class="fa-solid fa-arrow-left mr-2 transition-transform group-hover:-translate-x-1"
+        ></i>
+        Voltar ao Menu
+      </a>
+
+      <article
+        id="captureArea"
+        class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200"
+      >
+        <header class="bg-gray-800 p-6 text-white border-b-4 border-red-600">
+          <h2 class="text-xl font-bold uppercase tracking-wider text-center">
+            Ensaio de Compressão
+          </h2>
+        </header>
+
+        <div class="p-8 space-y-6">
+          <section>
+            <label
+              for="tipoCP"
+              class="block text-xs font-bold text-gray-500 uppercase mb-2"
+              >1. Dimensões do CP (mm)</label
+            >
+            <select
+              id="tipoCP"
+              class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg font-semibold outline-none focus:border-red-500 cursor-pointer text-gray-700"
+            >
+              <option value="78.54">100 x 200 (Padrão)</option>
+              <option value="176.71">150 x 300</option>
+            </select>
+          </section>
+
+          <section>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-2"
+              >2. Entrada da Carga</label
+            >
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                data-unit="tf"
+                class="unit-btn p-3 rounded-lg border-2 border-gray-200 font-bold text-gray-400 hover:border-gray-300 transition-all focus:outline-none"
+              >
+                Tf
+              </button>
+              <button
+                type="button"
+                data-unit="kn"
+                class="unit-btn p-3 rounded-lg border-2 border-gray-200 font-bold text-gray-400 hover:border-gray-300 transition-all focus:outline-none"
+              >
+                kN
+              </button>
+            </div>
+          </section>
+
+          <section>
+            <label
+              for="valorCarga"
+              class="block text-xs font-bold text-gray-500 uppercase mb-2"
+              >3. Valor Lido na Prensa</label
+            >
+            <input
+              type="number"
+              id="valorCarga"
+              class="w-full p-4 text-2xl font-mono border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-red-500 transition-all"
+              placeholder="0.00"
+              step="0.01"
+            />
+          </section>
+
+          <button
+            id="btnProcessar"
+            class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95"
+          >
+            PROCESSAR CONVERSÃO
+          </button>
+
+          <div
+            id="resBox"
+            class="hidden mt-6 space-y-4 animate-in fade-in duration-500"
+          >
+            <div class="grid grid-cols-2 gap-4">
+              <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <span
+                  class="text-[10px] text-gray-400 font-bold uppercase tracking-tighter"
+                  >Carga em Tf</span
+                >
+                <div
+                  id="resTf"
+                  class="text-xl font-bold text-gray-700 mt-1"
+                ></div>
+              </div>
+              <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <span
+                  class="text-[10px] text-gray-400 font-bold uppercase tracking-tighter"
+                  >Carga em kN</span
+                >
+                <div
+                  id="resKn"
+                  class="text-xl font-bold text-gray-700 mt-1"
+                ></div>
+              </div>
+            </div>
+            <div
+              class="bg-red-600 p-6 rounded-xl text-white text-center shadow-inner"
+            >
+              <span
+                class="text-xs font-bold uppercase opacity-80 tracking-widest leading-none"
+                >Resistência à Compressão</span
+              >
+              <div class="flex items-center justify-center gap-2 mt-2">
+                <span id="resMpa" class="text-5xl font-black italic"></span>
+                <span class="text-xl font-bold opacity-90">MPa</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <footer class="grid grid-cols-2 gap-4 mt-6">
+        <button
+          id="btnLimpar"
+          class="bg-white border border-gray-300 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center gap-2"
+        >
+          <i class="fa-solid fa-rotate-left"></i> Limpar
+        </button>
+        <button
+          id="btnSalvar"
+          class="bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+        >
+          <i class="fa-solid fa-camera"></i> Printar
+        </button>
+      </footer>
+
+      <p
+        class="text-center text-gray-400 text-[10px] mt-8 uppercase tracking-widest"
+      >
+        SGI - ConcreFuji | Lab Tech
+      </p>
+    </div>
+
+    <script src="../js/conversao.js"></script>
+  </body>
+</html>
