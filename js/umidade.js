@@ -1,12 +1,12 @@
 /**
  * SGI - ConcreFuji
- * Módulo de Umidade de Areia
+ * Módulo de Umidade de Areia - Cálculo sobre Massa Úmida
  */
 
 const elements = {
   pesoUmido: document.getElementById("pesoUmido"),
   pesoSeco: document.getElementById("pesoSeco"),
-  btnCalcular: document.getElementById("btnCalcular"), // Certifique-se de que o ID no HTML seja este
+  btnCalcular: document.getElementById("btnCalcular"),
   btnLimpar: document.getElementById("btnLimpar"),
   btnSalvar: document.getElementById("btnSalvar"),
   resBox: document.getElementById("resBox"),
@@ -29,11 +29,15 @@ if (elements.btnLimpar) {
 
 if (elements.btnSalvar) {
   elements.btnSalvar.addEventListener("click", async () => {
-    const canvas = await html2canvas(elements.captureArea, { scale: 2 });
-    const link = document.createElement("a");
-    link.download = `UMIDADE-AREIA-${Date.now()}.png`;
-    link.href = canvas.toDataURL();
-    link.click();
+    try {
+      const canvas = await html2canvas(elements.captureArea, { scale: 2 });
+      const link = document.createElement("a");
+      link.download = `UMIDADE-AREIA-${Date.now()}.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+    } catch (err) {
+      console.error("Erro ao gerar print:", err);
+    }
   });
 }
 
@@ -41,8 +45,12 @@ function calcularUmidade() {
   const pu = parseFloat(elements.pesoUmido.value);
   const ps = parseFloat(elements.pesoSeco.value);
 
-  if (pu > 0 && ps > 0 && ps < pu) {
-    const umidade = ((pu - ps) / ps) * 100;
+  // Validação: Peso úmido deve ser maior que o seco e ambos maiores que zero
+  if (pu > 0 && ps > 0 && pu > ps) {
+    // NOVA FÓRMULA: (Areia Úmida - Areia Seca) / Areia Úmida
+    const umidade = ((pu - ps) / pu) * 100;
+
+    // Exibição com 2 casas decimais e vírgula
     elements.valorTxt.innerText = umidade.toFixed(2).replace(".", ",") + "%";
     elements.resBox.classList.remove("hidden");
   } else {
