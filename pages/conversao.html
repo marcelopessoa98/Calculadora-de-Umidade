@@ -38,20 +38,20 @@
             <label
               for="tipoCP"
               class="block text-xs font-bold text-gray-500 uppercase mb-2"
-              >1. Dimensões do CP (mm)</label
+              >1. Dimensões do Corpo de prova:</label
             >
             <select
               id="tipoCP"
               class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg font-semibold outline-none focus:border-red-500 cursor-pointer text-gray-700"
             >
-              <option value="78.54">100 x 200 (Padrão)</option>
+              <option value="78.54">100x200 mm (Padrão)</option>
               <option value="176.71">150 x 300</option>
             </select>
           </section>
 
           <section>
             <label class="block text-xs font-bold text-gray-500 uppercase mb-2"
-              >2. Entrada da Carga</label
+              >2. SELECIONE O TIPO DE CARGA:</label
             >
             <div class="grid grid-cols-2 gap-2">
               <button
@@ -75,7 +75,7 @@
             <label
               for="valorCarga"
               class="block text-xs font-bold text-gray-500 uppercase mb-2"
-              >3. Valor Lido na Prensa</label
+              >3. Valor Lido na Prensa:</label
             >
             <input
               type="number"
@@ -90,7 +90,7 @@
             id="btnProcessar"
             class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95"
           >
-            PROCESSAR CONVERSÃO
+            CONVERTER CARGA
           </button>
 
           <div
@@ -120,15 +120,15 @@
               </div>
             </div>
             <div
-              class="bg-red-600 p-6 rounded-xl text-white text-center shadow-inner"
+              class="bg-green-500 p-6 rounded-xl text-white text-center shadow-inner"
             >
               <span
-                class="text-xs font-bold uppercase opacity-80 tracking-widest leading-none"
+                class="text-xs font-extrabold uppercase opacity-80 tracking-widest leading-none"
                 >Resistência à Compressão</span
               >
               <div class="flex items-center justify-center gap-2 mt-2">
                 <span id="resMpa" class="text-5xl font-black italic"></span>
-                <span class="text-xl font-bold opacity-90">MPa</span>
+                <span class="text-2xl font-bold opacity-90">MPa</span>
               </div>
             </div>
           </div>
@@ -153,7 +153,7 @@
       <p
         class="text-center text-gray-400 text-[10px] mt-8 uppercase tracking-widest"
       >
-        SGI - ConcreFuji | Lab Tech
+        CONCRETEC | 2026
       </p>
     </div>
 

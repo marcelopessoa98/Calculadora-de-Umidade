@@ -90,8 +90,8 @@ function executarCalculos() {
 
 function exibirResultados(tf, kn, mpa) {
   // Formatação para 2 casas decimais com substituição de ponto por vírgula
-  elementos.resTf.innerText = tf.toFixed(2).replace(".", ",") + " tf";
-  elementos.resKn.innerText = kn.toFixed(2).replace(".", ",") + " kN";
+  elementos.resTf.innerText = tf.toFixed(2).replace(".", ",") + " Tf";
+  elementos.resKn.innerText = kn.toFixed(2).replace(".", ",") + " KN";
   elementos.resMpa.innerText = mpa.toFixed(2).replace(".", ",");
 
   elementos.resBox.classList.remove("hidden");
