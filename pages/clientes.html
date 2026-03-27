@@ -10,119 +10,108 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
   </head>
-  <body class="bg-gray-50 min-h-screen p-4 pb-20 font-sans text-gray-900">
+  <body class="bg-gray-50 min-h-screen p-4 pb-24 font-sans text-gray-900">
     <div class="max-w-md mx-auto">
       <div class="flex justify-between items-center mb-6">
         <a
           href="../index.html"
-          class="text-gray-500 hover:text-red-600 transition-colors"
+          class="text-gray-400 hover:text-red-600 transition-colors"
         >
           <i class="fa-solid fa-arrow-left mr-2"></i> Voltar
         </a>
         <button
           id="btnAdminLogin"
-          class="text-xs font-bold bg-gray-200 px-3 py-1 rounded-full text-gray-600"
+          class="text-[10px] font-bold bg-white border border-gray-200 px-4 py-2 rounded-full text-gray-500 shadow-sm active:scale-95 transition-all"
         >
-          <i class="fa-solid fa-lock mr-1"></i> Admin
+          <i class="fa-solid fa-lock mr-1 text-red-600"></i> ÁREA DO ADMIN
         </button>
       </div>
 
-      <header class="mb-6">
+      <header class="mb-8 text-center">
         <h1
           class="text-2xl font-black text-gray-800 uppercase tracking-tighter"
         >
-          Lista de <span class="text-red-600">Clientes</span>
+          Gestão de <span class="text-red-600">Clientes</span>
         </h1>
+        <p
+          class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"
+        >
+          ConcreFuji Lab Service
+        </p>
       </header>
 
       <section
         id="formCadastro"
-        class="hidden bg-white p-6 rounded-3xl shadow-lg border-2 border-red-50 mb-8 space-y-4 animate-in slide-in-from-top duration-500"
+        class="hidden bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100 mb-8 space-y-4 animate-in slide-in-from-top duration-500"
       >
-        <div class="flex justify-between items-center">
-          <h3 class="font-bold text-red-600 text-sm uppercase">
-            Novo Cadastro
-          </h3>
+        <div class="flex justify-between items-center mb-2">
+          <span
+            class="text-[10px] font-bold text-red-600 uppercase tracking-widest"
+            >Novo Registro</span
+          >
           <button
             id="btnLogout"
-            class="text-[10px] font-bold text-gray-400 hover:text-red-600 uppercase"
+            class="text-[10px] font-bold text-gray-300 hover:text-red-600 uppercase"
           >
             Sair
           </button>
         </div>
 
-        <div>
-          <label
-            class="block text-[10px] font-bold text-gray-400 uppercase mb-1"
-            >Nome do Cliente</label
-          >
+        <div class="space-y-3">
           <input
             type="text"
             id="nomeCliente"
-            class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500"
-            placeholder="Ex: Construtora Silva"
+            class="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 text-sm"
+            placeholder="Nome do Cliente"
           />
-        </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label
-              class="block text-[10px] font-bold text-gray-400 uppercase mb-1"
-              >Obra</label
-            >
+          <div class="grid grid-cols-2 gap-3">
             <input
               type="text"
               id="nomeObra"
-              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="Residencial"
+              class="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 text-sm"
+              placeholder="Obra"
             />
-          </div>
-          <div>
-            <label
-              class="block text-[10px] font-bold text-gray-400 uppercase mb-1"
-              >Referência</label
-            >
             <input
               type="text"
               id="refObra"
-              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="REF-01"
+              class="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 text-sm"
+              placeholder="Referência"
             />
           </div>
-        </div>
 
-        <div>
-          <label
-            class="block text-[10px] font-bold text-gray-400 uppercase mb-1"
-            >Observações</label
-          >
           <textarea
             id="obsObra"
-            rows="2"
-            class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500"
-            placeholder="Ex: Cimento CP-IV, Traço especial..."
+            rows="3"
+            class="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 text-sm"
+            placeholder="Observações técnicas..."
           ></textarea>
         </div>
 
         <button
           id="btnSalvarCliente"
-          class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-2xl shadow-md transition-all active:scale-95"
+          class="w-full bg-red-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-red-200 active:scale-95 transition-all uppercase text-xs"
         >
-          CADASTRAR CLIENTE
+          Sincronizar com a Nuvem
         </button>
       </section>
 
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-bold text-gray-700">Obras Ativas</h3>
+      <div class="flex items-center justify-between mb-4 px-2">
+        <h3 class="font-black text-gray-800 uppercase text-xs">
+          Obras em Andamento
+        </h3>
         <span
           id="contadorClientes"
-          class="text-[10px] bg-gray-200 px-2 py-0.5 rounded-full font-bold text-gray-500"
+          class="text-[10px] bg-red-600 px-2 py-0.5 rounded-md font-bold text-white"
           >0</span
         >
       </div>
+
       <ul id="listaClientes" class="space-y-4"></ul>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <script src="../js/clientes.js"></script>
   </body>
 </html>
