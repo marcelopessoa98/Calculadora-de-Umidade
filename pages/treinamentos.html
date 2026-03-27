@@ -10,53 +10,58 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
   </head>
-  <body class="bg-gray-50 min-h-screen p-4 font-sans text-gray-900">
-    <div class="max-w-5xl mx-auto">
-      <a
-        href="../index.html"
-        class="inline-flex items-center mb-6 text-gray-500 hover:text-red-600 transition-colors group"
-      >
-        <i
-          class="fa-solid fa-arrow-left mr-2 transition-transform group-hover:-translate-x-1"
-        ></i>
-        Voltar ao Menu
-      </a>
-
-      <header class="mb-10">
-        <h1
-          class="text-3xl font-black text-gray-800 uppercase tracking-tighter"
+  <body class="bg-[#f8f9fa] min-h-screen pb-20 font-sans">
+    <div class="max-w-xl mx-auto px-5">
+      <header class="py-8">
+        <a
+          href="../index.html"
+          class="text-gray-400 hover:text-red-600 transition-colors text-sm font-bold uppercase tracking-widest"
         >
-          Portal de <span class="text-red-600">Treinamento</span>
+          <i class="fa-solid fa-chevron-left mr-1"></i> Voltar
+        </a>
+        <h1 class="text-3xl font-black text-gray-900 mt-4 uppercase italic">
+          Treinamentos
         </h1>
-        <p class="text-gray-500">
-          Capacitação técnica e normas de segurança ConcreFuji.
-        </p>
+        <p class="text-gray-500 text-sm">Procedimentos Técnicos e Normas</p>
       </header>
 
-      <div class="flex gap-2 mb-8 overflow-x-auto pb-2">
-        <button
-          class="bg-red-600 text-white px-4 py-2 rounded-full text-xs font-bold uppercase"
-        >
-          Todos
-        </button>
-        <button
-          class="bg-white border border-gray-200 text-gray-500 px-4 py-2 rounded-full text-xs font-bold uppercase hover:border-red-600"
-        >
-          Laboratório
-        </button>
-        <button
-          class="bg-white border border-gray-200 text-gray-500 px-4 py-2 rounded-full text-xs font-bold uppercase hover:border-red-600"
-        >
-          Segurança
-        </button>
-      </div>
+      <main class="space-y-4">
+        <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+          <div class="flex items-center gap-4 mb-3">
+            <div class="bg-red-50 text-red-600 p-3 rounded-xl">
+              <i class="fa-solid fa-play"></i>
+            </div>
+            <h3 class="font-bold text-gray-800">Moldagem de Corpos de Prova</h3>
+          </div>
+          <p class="text-xs text-gray-500 mb-4">
+            Instruções baseadas na NBR 5738 para moldagem e cura.
+          </p>
+          <a
+            href=""
+            target="_blank"
+            class="block w-full text-center bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all uppercase text-xs tracking-widest"
+            >Assistir Aula</a
+          >
+        </div>
 
-      <main
-        id="gridTreinamentos"
-        class="grid grid-cols-1 md:grid-cols-3 gap-6"
-      ></main>
+        <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+          <div class="flex items-center gap-4 mb-3">
+            <div class="bg-blue-50 text-blue-600 p-3 rounded-xl">
+              <i class="fa-solid fa-vial"></i>
+            </div>
+            <h3 class="font-bold text-gray-800">Ensaio de Slump Test</h3>
+          </div>
+          <p class="text-xs text-gray-500 mb-4">
+            Determinação da consistência pelo abatimento do tronco de cone.
+          </p>
+          <a
+            href=""
+            target="_blank"
+            class="block w-full text-center bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-blue-600 transition-all uppercase text-xs tracking-widest"
+            >Assistir Aula</a
+          >
+        </div>
+      </main>
     </div>
-
-    <script src="../js/treinamentos.js"></script>
   </body>
 </html>
