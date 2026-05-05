@@ -24,23 +24,36 @@ const btnLogout = document.getElementById("btnLogout");
 const btnSalvar = document.getElementById("btnSalvarCliente");
 const listaClientes = document.getElementById("listaClientes");
 const contadorDoc = document.getElementById("contadorClientes");
+const inputBusca = document.getElementById("inputBusca");
+
+const adminModal = document.getElementById("adminModal");
+const adminLoginForm = document.getElementById("adminLoginForm");
+const adminSenhaInput = document.getElementById("adminSenhaInput");
+const adminModalCancelar = document.getElementById("adminModalCancelar");
 
 const inputCliente = document.getElementById("nomeCliente");
 const inputObra = document.getElementById("nomeObra");
 const inputRef = document.getElementById("refObra");
 const inputObs = document.getElementById("obsObra");
 const inputEndereco = document.getElementById("enderecoObra");
+
 let idEmEdicao = null;
+let clientesCache = {};
 
 document.addEventListener("DOMContentLoaded", () => {
   verificarSessao();
+  configurarModalAdmin();
   monitorarConexao();
   escutarNuvem();
 });
 
+function isAdmin() {
+  return sessionStorage.getItem("isAdmin") === "true";
+}
+
 function verificarSessao() {
-  const isAdmin = sessionStorage.getItem("isAdmin") === "true";
-  if (isAdmin) {
+  const admin = isAdmin();
+  if (admin) {
     formCadastro?.classList.remove("hidden");
     btnLogin?.classList.add("hidden");
   } else {
@@ -49,28 +62,60 @@ function verificarSessao() {
   }
 }
 
-if (btnLogin) {
-  btnLogin.onclick = () => {
-    const senha = prompt("Acesso Restrito ConcreFuji. Digite a senha:");
+function abrirModalAdmin() {
+  if (!adminModal) return;
+  adminModal.classList.remove("hidden");
+  setTimeout(() => adminSenhaInput?.focus(), 30);
+}
+
+function fecharModalAdmin() {
+  if (!adminModal) return;
+  adminModal.classList.add("hidden");
+  if (adminSenhaInput) adminSenhaInput.value = "";
+}
+
+function configurarModalAdmin() {
+  if (!adminModal || !adminLoginForm) return;
+
+  adminLoginForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const senha = (adminSenhaInput?.value || "").trim();
+
     if (senha === SENHA_ADMIN) {
       sessionStorage.setItem("isAdmin", "true");
       verificarSessao();
-      database
-        .ref("clientes")
-        .once("value", (snapshot) => renderizarLista(snapshot.val()));
-    } else if (senha !== null) {
-      alert("Senha incorreta!");
+      renderizarLista(clientesCache);
+      fecharModalAdmin();
+      return;
     }
-  };
+
+    alert("Senha incorreta!");
+  });
+
+  adminModalCancelar?.addEventListener("click", fecharModalAdmin);
+
+  adminModal.addEventListener("click", (event) => {
+    if (event.target === adminModal) fecharModalAdmin();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !adminModal.classList.contains("hidden")) {
+      fecharModalAdmin();
+    }
+  });
+}
+
+if (btnLogin) {
+  btnLogin.onclick = abrirModalAdmin;
 }
 
 if (btnLogout) {
   btnLogout.onclick = () => {
     sessionStorage.removeItem("isAdmin");
+    idEmEdicao = null;
+    if (btnSalvar) btnSalvar.innerText = "Sincronizar com a Nuvem";
     verificarSessao();
-    database
-      .ref("clientes")
-      .once("value", (snapshot) => renderizarLista(snapshot.val()));
+    renderizarLista(clientesCache);
   };
 }
 
@@ -89,7 +134,8 @@ function escutarNuvem() {
   database.ref("clientes").on(
     "value",
     (snapshot) => {
-      renderizarLista(snapshot.val());
+      clientesCache = snapshot.val() || {};
+      renderizarLista(clientesCache);
     },
     (erro) => {
       console.error("Erro ao ler dados de clientes:", erro);
@@ -99,13 +145,21 @@ function escutarNuvem() {
 }
 
 function salvarCliente() {
+  if (!isAdmin()) {
+    alert("Apenas administrador pode adicionar ou editar clientes.");
+    return;
+  }
+
   const nome = inputCliente.value.trim();
   const obra = inputObra.value.trim();
   const ref = inputRef.value.trim();
   const obs = inputObs.value.trim();
   const endereco = inputEndereco.value.trim();
 
-  if (!nome || !obra || !ref) return alert("Preencha Nome, Obra e Referencia!");
+  if (!nome || !obra || !ref) {
+    alert("Preencha Nome, Obra e Referencia!");
+    return;
+  }
 
   const id = idEmEdicao || Date.now();
   database
@@ -138,10 +192,33 @@ if (btnSalvar) {
   btnSalvar.onclick = salvarCliente;
 }
 
+if (inputBusca) {
+  inputBusca.addEventListener("input", () => {
+    renderizarLista(clientesCache);
+  });
+}
+
+function normalizarTexto(valor) {
+  return (valor || "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function editarCliente(id) {
+  if (!isAdmin()) {
+    alert("Apenas administrador pode editar clientes.");
+    return;
+  }
+
   database.ref("clientes/" + id).once("value").then((snapshot) => {
     const cliente = snapshot.val();
-    if (!cliente) return alert("Registro não encontrado.");
+    if (!cliente) {
+      alert("Registro nao encontrado.");
+      return;
+    }
 
     inputCliente.value = cliente.nome || "";
     inputObra.value = cliente.obra || "";
@@ -157,16 +234,35 @@ function editarCliente(id) {
 
 function renderizarLista(dados) {
   listaClientes.innerHTML = "";
-  const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+  const admin = isAdmin();
+  const termoBusca = normalizarTexto(inputBusca?.value || "");
 
-  if (!dados) {
+  if (!dados || Object.keys(dados).length === 0) {
     contadorDoc.innerText = "0";
     listaClientes.innerHTML = '<li class="text-center py-10 text-gray-300 italic text-sm">Nenhum registro encontrado.</li>';
     return;
   }
 
-  const arrayClientes = Object.values(dados);
-  contadorDoc.innerText = arrayClientes.length;
+  const totalClientes = Object.values(dados).length;
+  let arrayClientes = Object.values(dados);
+
+  if (termoBusca) {
+    arrayClientes = arrayClientes.filter((cliente) => {
+      const textoBusca = normalizarTexto(
+        `${cliente.nome || ""} ${cliente.obra || ""} ${cliente.ref || ""} ${cliente.obs || ""} ${cliente.endereco || ""}`
+      );
+      return textoBusca.includes(termoBusca);
+    });
+  }
+
+  contadorDoc.innerText = termoBusca
+    ? `${arrayClientes.length}/${totalClientes}`
+    : `${totalClientes}`;
+
+  if (arrayClientes.length === 0) {
+    listaClientes.innerHTML = '<li class="text-center py-10 text-gray-300 italic text-sm">Nenhum registro encontrado para esta busca.</li>';
+    return;
+  }
 
   arrayClientes.reverse().forEach((cliente) => {
     const endereco = (cliente.endereco || "").trim();
@@ -178,7 +274,7 @@ function renderizarLista(dados) {
     li.className =
       "bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm flex justify-between items-start";
 
-    const btnAcoes = isAdmin
+    const btnAcoes = admin
       ? `<div class="flex items-center gap-1">
           <button onclick="editarCliente(${cliente.id})" class="text-gray-300 hover:text-blue-600 transition-colors p-1" title="Editar">
             <i class="fa-solid fa-pen-to-square"></i>
@@ -208,6 +304,11 @@ function renderizarLista(dados) {
 }
 
 function deletarCliente(id) {
+  if (!isAdmin()) {
+    alert("Apenas administrador pode excluir clientes.");
+    return;
+  }
+
   if (confirm("Excluir definitivamente da nuvem?")) {
     database.ref("clientes/" + id).remove();
   }

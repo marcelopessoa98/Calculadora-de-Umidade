@@ -148,6 +148,47 @@
       <ul id="listaClientes" class="space-y-4"></ul>
     </div>
 
+    <div
+      id="adminModal"
+      class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] p-4 flex items-center justify-center"
+    >
+      <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-gray-100 p-6">
+        <div class="mb-4">
+          <h3 class="text-sm font-black uppercase tracking-wider text-gray-800">
+            Acesso Admin
+          </h3>
+          <p class="text-[11px] text-gray-500 mt-1">
+            Digite a senha para liberar cadastro, edição e exclusão.
+          </p>
+        </div>
+
+        <form id="adminLoginForm" class="space-y-3">
+          <input
+            type="password"
+            id="adminSenhaInput"
+            class="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 text-sm"
+            placeholder="Senha do administrador"
+            autocomplete="current-password"
+          />
+          <div class="flex gap-2">
+            <button
+              type="button"
+              id="adminModalCancelar"
+              class="flex-1 bg-gray-100 text-gray-600 font-bold py-3 rounded-2xl text-xs uppercase tracking-wider"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="flex-1 bg-red-600 text-white font-bold py-3 rounded-2xl text-xs uppercase tracking-wider"
+            >
+              Entrar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <script src="../js/clientes.js"></script>
