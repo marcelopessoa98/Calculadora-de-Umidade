@@ -2,15 +2,28 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Clientes - ConcreFuji</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
+    <style>
+      /* Ajuste para mobile para não dar zoom no input */
+      input,
+      textarea {
+        font-size: 16px !important;
+      }
+      body {
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
   </head>
-  <body class="bg-gray-50 min-h-screen p-4 pb-24 font-sans text-gray-900">
+  <body class="bg-gray-50 min-h-screen p-4 pb-28 font-sans text-gray-900">
     <div class="max-w-md mx-auto">
       <div class="flex justify-between items-center mb-6">
         <a
@@ -34,20 +47,20 @@
           Gestão de <span class="text-red-600">Clientes</span>
         </h1>
         <p
-          class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"
+          class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1 italic"
         >
-          ConcreFuji Lab Service
+          SGI - ConcreFuji Lab
         </p>
       </header>
 
       <section
         id="formCadastro"
-        class="hidden bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100 mb-8 space-y-4 animate-in slide-in-from-top duration-500"
+        class="hidden bg-white p-6 rounded-[2.5rem] shadow-xl border border-gray-100 mb-8 space-y-4 animate-in slide-in-from-top duration-500"
       >
         <div class="flex justify-between items-center mb-2">
           <span
             class="text-[10px] font-bold text-red-600 uppercase tracking-widest"
-            >Novo Registro</span
+            >Novo Registro Cloud</span
           >
           <button
             id="btnLogout"
@@ -84,27 +97,52 @@
             id="obsObra"
             rows="3"
             class="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 text-sm"
-            placeholder="Observações técnicas..."
+            placeholder="Observações (Traço, Cimento, POP...)"
           ></textarea>
+
+          <input
+            type="text"
+            id="enderecoObra"
+            class="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 text-sm"
+            placeholder="Endereço da obra (abre no Google Maps)"
+          />
         </div>
 
         <button
           id="btnSalvarCliente"
-          class="w-full bg-red-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-red-200 active:scale-95 transition-all uppercase text-xs"
+          class="w-full bg-red-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-red-100 active:scale-95 transition-all uppercase text-xs tracking-widest"
         >
           Sincronizar com a Nuvem
         </button>
       </section>
 
-      <div class="flex items-center justify-between mb-4 px-2">
-        <h3 class="font-black text-gray-800 uppercase text-xs">
-          Obras em Andamento
-        </h3>
+      <div class="relative mb-6">
         <span
-          id="contadorClientes"
-          class="text-[10px] bg-red-600 px-2 py-0.5 rounded-md font-bold text-white"
-          >0</span
+          class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400"
         >
+          <i class="fa-solid fa-magnifying-glass text-xs"></i>
+        </span>
+        <input
+          type="text"
+          id="inputBusca"
+          class="w-full pl-10 pr-4 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+          placeholder="Filtrar por cliente, obra ou ref..."
+        />
+      </div>
+
+      <div class="flex items-center justify-between mb-4 px-2">
+        <h3
+          class="font-black text-gray-800 uppercase text-[10px] tracking-widest"
+        >
+          Obras Sincronizadas
+        </h3>
+        <div class="flex items-center gap-2">
+          <span
+            id="contadorClientes"
+            class="text-[10px] bg-red-600 px-2 py-0.5 rounded-md font-bold text-white shadow-sm shadow-red-200"
+            >0</span
+          >
+        </div>
       </div>
 
       <ul id="listaClientes" class="space-y-4"></ul>
@@ -115,3 +153,6 @@
     <script src="../js/clientes.js"></script>
   </body>
 </html>
+
+
+
