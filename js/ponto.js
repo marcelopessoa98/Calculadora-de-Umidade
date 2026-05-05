@@ -130,6 +130,50 @@ function obterLocalizacao() {
   });
 }
 
+function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (v) => (v * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+async function identificarObraPorLocalizacao(latitude, longitude) {
+  if (latitude == null || longitude == null) return null;
+
+  const snapshot = await database.ref("obras").once("value");
+  const obras = Object.values(snapshot.val() || {});
+  if (!obras.length) return null;
+
+  let melhor = null;
+  for (const obra of obras) {
+    const latObra = obra.localizacao?.latitude;
+    const lonObra = obra.localizacao?.longitude;
+    if (typeof latObra !== "number" || typeof lonObra !== "number") continue;
+
+    const distancia = calcularDistanciaMetros(latitude, longitude, latObra, lonObra);
+    if (!melhor || distancia < melhor.distanciaMetros) {
+      melhor = {
+        obraId: obra.id,
+        obraNome: obra.nome || "Obra sem nome",
+        cliente: obra.cliente || "",
+        endereco: obra.endereco || "",
+        distanciaMetros: distancia,
+      };
+    }
+  }
+
+  if (!melhor) return null;
+  return melhor;
+}
+
 async function cadastrarFaceFuncionario() {
   if (!isAdmin()) {
     setStatus("Apenas administrador pode cadastrar funcionários.", true);
@@ -233,6 +277,7 @@ async function registrarPonto() {
     }
 
     const geo = await obterLocalizacao();
+    const obraProxima = await identificarObraPorLocalizacao(geo.latitude, geo.longitude);
     const agora = new Date();
     const registroId = Date.now().toString();
 
@@ -250,10 +295,27 @@ async function registrarPonto() {
         precisaoMetros: geo.accuracy,
         erro: geo.error,
       },
+      obraVinculada: obraProxima
+        ? {
+            obraId: obraProxima.obraId,
+            nome: obraProxima.obraNome,
+            cliente: obraProxima.cliente,
+            endereco: obraProxima.endereco,
+            distanciaMetros: Number(obraProxima.distanciaMetros.toFixed(1)),
+          }
+        : null,
       dispositivo: navigator.userAgent,
     });
 
-    setStatus(`Ponto registrado para ${funcionarioLogado.nome} às ${agora.toLocaleTimeString("pt-BR")}.`);
+    if (obraProxima) {
+      setStatus(
+        `Ponto registrado para ${funcionarioLogado.nome} às ${agora.toLocaleTimeString("pt-BR")} | Obra: ${obraProxima.obraNome} (${obraProxima.distanciaMetros.toFixed(0)}m).`
+      );
+    } else {
+      setStatus(
+        `Ponto registrado para ${funcionarioLogado.nome} às ${agora.toLocaleTimeString("pt-BR")} (sem obra vinculada).`
+      );
+    }
   } catch (err) {
     console.error(err);
     setStatus(err.message || "Erro ao registrar ponto.", true);
