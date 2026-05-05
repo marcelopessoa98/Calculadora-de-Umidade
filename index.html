@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
@@ -13,148 +13,123 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
     <style>
-      /* Toque de App: Remove o scroll horizontal e o highlight de clique no mobile */
       body {
         -webkit-tap-highlight-color: transparent;
+        background: #f5f7fb;
       }
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none;
+      .menu-card {
+        transition: all 0.2s ease;
+      }
+      .menu-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+      }
+      .menu-card:active {
+        transform: scale(0.98);
       }
     </style>
   </head>
-  <body class="bg-gray-50 min-h-screen pb-24 font-sans selection:bg-red-100">
-    <header
-      class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100"
-    >
+  <body class="min-h-screen pb-24 font-sans text-slate-900 selection:bg-red-100">
+    <header class="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 backdrop-blur-md">
       <div class="max-w-xl mx-auto px-5 py-4 flex justify-between items-center">
         <div class="flex items-center gap-3">
           <img src="assets/logoIcone.png" alt="Logo" class="h-9 w-auto" />
-          <h1 class="text-lg font-bold text-gray-800 tracking-tight">
-            CONCRE <span class="text-red-600">FUJI</span>
-          </h1>
+          <div>
+            <p class="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-bold">Sistema SGI</p>
+            <h1 class="text-lg font-black tracking-tight text-slate-800">CONCRE <span class="text-red-600">FUJI</span></h1>
+          </div>
         </div>
-        <div
-          class="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full"
-        >
-          <span
-            class="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"
-          ></span>
-          <span class="text-[10px] font-bold text-emerald-700 uppercase"
-            >Online</span
-          >
+        <div class="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full">
+          <span class="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-[10px] font-bold text-emerald-700 uppercase">Online</span>
         </div>
       </div>
     </header>
 
-    <section class="max-w-xl mx-auto px-5 pt-8 pb-4">
-      <h2 class="text-2xl font-black text-gray-900 tracking-tight">
-        Bem-vindo(a)!
-      </h2>
-      <p class="text-sm text-gray-500 mt-1">O que vamos fazer hoje?</p>
+    <section class="max-w-xl mx-auto px-5 pt-6">
+      <div class="rounded-3xl bg-gradient-to-r from-slate-900 to-slate-700 p-6 text-white shadow-lg">
+        <h2 class="text-2xl font-black tracking-tight">Painel Principal</h2>
+        <p class="text-sm text-white/80 mt-1">Acesso rápido aos módulos operacionais da ConcreFuji.</p>
+      </div>
     </section>
 
-    <main class="max-w-xl mx-auto px-5 grid grid-cols-1 gap-4">
-      <a
-        href="pages/umidade.html"
-        class="flex items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm active:scale-95 transition-all"
-      >
+    <main class="max-w-xl mx-auto px-5 mt-5 grid grid-cols-1 gap-4">
+      <a href="pages/umidade.html" class="menu-card flex items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         <div class="bg-red-50 text-red-600 p-4 rounded-2xl mr-4">
           <i class="fa-solid fa-droplet text-xl"></i>
         </div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-800">Umidade de Areia</h3>
-          <p class="text-xs text-gray-400">Teor de umidade (g)</p>
+          <h3 class="font-bold text-slate-800">Umidade de Areia</h3>
+          <p class="text-xs text-slate-500">Teor de umidade (g)</p>
         </div>
-        <i class="fa-solid fa-chevron-right text-gray-300 text-sm"></i>
+        <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
       </a>
 
-      <a
-        href="pages/conversao.html"
-        class="flex items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm active:scale-95 transition-all"
-      >
-        <div class="bg-blue-50 text-blue-600 p-4 rounded-2xl mr-4">
+      <a href="pages/conversao.html" class="menu-card flex items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div class="bg-cyan-50 text-cyan-700 p-4 rounded-2xl mr-4">
           <i class="fa-solid fa-arrows-rotate text-xl"></i>
         </div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-800">Conversor Técnico</h3>
-          <p class="text-xs text-gray-400">Tf, kN e MPa</p>
+          <h3 class="font-bold text-slate-800">Conversor Técnico</h3>
+          <p class="text-xs text-slate-500">Tf, kN e MPa</p>
         </div>
-        <i class="fa-solid fa-chevron-right text-gray-300 text-sm"></i>
+        <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
       </a>
 
-      <a
-        href="pages/treinamentos.html"
-        class="flex items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm active:scale-95 transition-all"
-      >
-        <div class="bg-emerald-50 text-emerald-600 p-4 rounded-2xl mr-4">
+      <a href="pages/treinamentos.html" class="menu-card flex items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div class="bg-emerald-50 text-emerald-700 p-4 rounded-2xl mr-4">
           <i class="fa-solid fa-graduation-cap text-xl"></i>
         </div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-800">Treinamentos</h3>
-          <p class="text-xs text-gray-400">Capacitação e POPs</p>
+          <h3 class="font-bold text-slate-800">Treinamentos</h3>
+          <p class="text-xs text-slate-500">Capacitação e POPs</p>
         </div>
-        <i class="fa-solid fa-chevron-right text-gray-300 text-sm"></i>
+        <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
       </a>
-      <a
-        href="pages/clientes.html"
-        class="flex items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm active:scale-95 transition-all"
-      >
-        <div class="bg-orange-50 text-orange-600 p-4 rounded-2xl mr-4">
+
+      <a href="pages/clientes.html" class="menu-card flex items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div class="bg-amber-50 text-amber-700 p-4 rounded-2xl mr-4">
           <i class="fa-solid fa-address-book text-xl"></i>
         </div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-800 uppercase text-sm">
-            Listagem de Clientes
-          </h3>
-          <p class="text-[10px] text-gray-400 font-bold uppercase">
-            Obras e Referências
-          </p>
+          <h3 class="font-bold text-slate-800">Listagem de Clientes</h3>
+          <p class="text-xs text-slate-500">Obras e Referências</p>
         </div>
-        <i class="fa-solid fa-chevron-right text-gray-300 text-xs"></i>
+        <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
+      </a>
+
+      <a href="pages/ponto.html" class="menu-card flex items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div class="bg-violet-50 text-violet-700 p-4 rounded-2xl mr-4">
+          <i class="fa-solid fa-user-check text-xl"></i>
+        </div>
+        <div class="flex-1">
+          <h3 class="font-bold text-slate-800">Controle de Ponto</h3>
+          <p class="text-xs text-slate-500">Face, localização, data e hora</p>
+        </div>
+        <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
       </a>
     </main>
 
-    <nav
-      class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-6 py-3 z-50"
-    >
-      <div
-        class="max-w-xl mx-auto flex justify-between items-center text-gray-400"
-      >
-        <a
-          href="index.html"
-          class="flex flex-col items-center gap-1 text-red-600"
-        >
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-6 py-3 z-50">
+      <div class="max-w-xl mx-auto flex justify-between items-center text-slate-400">
+        <a href="index.html" class="flex flex-col items-center gap-1 text-red-600">
           <i class="fa-solid fa-house text-lg"></i>
           <span class="text-[10px] font-bold uppercase">Início</span>
         </a>
-        <a
-          href="pages/conversao.html"
-          class="flex flex-col items-center gap-1 hover:text-gray-600 transition-colors"
-        >
+        <a href="pages/conversao.html" class="flex flex-col items-center gap-1 hover:text-slate-700 transition-colors">
           <i class="fa-solid fa-calculator text-lg"></i>
           <span class="text-[10px] font-bold uppercase">Cálculos</span>
         </a>
-        <a
-          href="pages/treinamentos.html"
-          class="flex flex-col items-center gap-1 hover:text-gray-600 transition-colors"
-        >
+        <a href="pages/treinamentos.html" class="flex flex-col items-center gap-1 hover:text-slate-700 transition-colors">
           <i class="fa-solid fa-book-open text-lg"></i>
           <span class="text-[10px] font-bold uppercase">Aulas</span>
         </a>
       </div>
     </nav>
 
-    <footer
-      class="hidden sm:block max-w-xl mx-auto px-5 mt-12 pb-8 text-center"
-    >
-      <img
-        src="assets/logo.png"
-        alt="ConcreFuji"
-        class="h-5 mx-auto grayscale opacity-30 mb-2"
-      />
-      <p
-        class="text-[10px] text-gray-400 font-medium uppercase tracking-widest"
-      >
+    <footer class="hidden sm:block max-w-xl mx-auto px-5 mt-12 pb-8 text-center">
+      <img src="assets/logo.png" alt="ConcreFuji" class="h-5 mx-auto grayscale opacity-30 mb-2" />
+      <p class="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
         &copy; 2026 ConcreFuji - CONCRETEC | Desenvolvido por Marcelo Pessoa
       </p>
     </footer>
