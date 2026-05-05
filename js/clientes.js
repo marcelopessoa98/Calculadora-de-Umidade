@@ -30,6 +30,7 @@ const inputObra = document.getElementById("nomeObra");
 const inputRef = document.getElementById("refObra");
 const inputObs = document.getElementById("obsObra");
 const inputEndereco = document.getElementById("enderecoObra");
+let idEmEdicao = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   verificarSessao();
@@ -106,7 +107,7 @@ function salvarCliente() {
 
   if (!nome || !obra || !ref) return alert("Preencha Nome, Obra e Referencia!");
 
-  const id = Date.now();
+  const id = idEmEdicao || Date.now();
   database
     .ref("clientes/" + id)
     .set({
@@ -123,6 +124,8 @@ function salvarCliente() {
       inputRef.value = "";
       inputObs.value = "";
       inputEndereco.value = "";
+      idEmEdicao = null;
+      if (btnSalvar) btnSalvar.innerText = "Sincronizar com a Nuvem";
       alert("Cliente salvo com sucesso na nuvem.");
     })
     .catch((erro) => {
@@ -133,6 +136,23 @@ function salvarCliente() {
 
 if (btnSalvar) {
   btnSalvar.onclick = salvarCliente;
+}
+
+function editarCliente(id) {
+  database.ref("clientes/" + id).once("value").then((snapshot) => {
+    const cliente = snapshot.val();
+    if (!cliente) return alert("Registro não encontrado.");
+
+    inputCliente.value = cliente.nome || "";
+    inputObra.value = cliente.obra || "";
+    inputRef.value = cliente.ref || "";
+    inputObs.value = cliente.obs || "";
+    inputEndereco.value = cliente.endereco || "";
+    idEmEdicao = id;
+    if (btnSalvar) btnSalvar.innerText = "Atualizar Registro";
+    inputCliente.focus();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 }
 
 function renderizarLista(dados) {
@@ -158,8 +178,15 @@ function renderizarLista(dados) {
     li.className =
       "bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm flex justify-between items-start";
 
-    const btnDelete = isAdmin
-      ? `<button onclick="deletarCliente(${cliente.id})" class="text-gray-200 hover:text-red-600 transition-colors p-1"><i class="fa-solid fa-trash-can"></i></button>`
+    const btnAcoes = isAdmin
+      ? `<div class="flex items-center gap-1">
+          <button onclick="editarCliente(${cliente.id})" class="text-gray-300 hover:text-blue-600 transition-colors p-1" title="Editar">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </button>
+          <button onclick="deletarCliente(${cliente.id})" class="text-gray-200 hover:text-red-600 transition-colors p-1" title="Excluir">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>`
       : "";
 
     li.innerHTML = `
@@ -174,7 +201,7 @@ function renderizarLista(dados) {
           <p class="text-[10px] text-gray-500 italic leading-relaxed">${cliente.obs}</p>
         </div>
       </div>
-      ${btnDelete}
+      ${btnAcoes}
     `;
     listaClientes.appendChild(li);
   });
