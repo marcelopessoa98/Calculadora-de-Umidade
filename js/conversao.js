@@ -154,10 +154,10 @@ function validarRegrasTecnicas(mpa, idade, fckProj, area) {
     obs.classList.remove("hidden");
     if (mpa < 3.0) {
       obs.innerHTML =
-        "⚠️ REPROVADO: ABAIXO DE 3 MPa. Não desmoldar/prosperar. Aguardar +1h para novo rompimento.";
+        "⚠️ REPROVADO: ABAIXO DE 3 MPa. Aguardar +1h para novo rompimento.";
       obs.classList.add("bg-red-50", "border-red-200", "text-red-700");
     } else {
-      obs.innerHTML = "✅ APROVADO: LIBERADO PARA DESMOLDA / PROSSEGUIR.";
+      obs.innerHTML = "✅ APROVADO.";
       obs.classList.add(
         "bg-emerald-50",
         "border-emerald-200",
