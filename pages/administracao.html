@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Administração - ConcreFuji</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      input,
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
+
+      .access-locked {
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body class="access-locked bg-slate-100 min-h-screen p-4 pb-24 font-sans text-slate-900">
+    <div
+      id="accessModal"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 px-4 backdrop-blur-sm"
+    >
+      <form
+        id="accessForm"
+        class="w-full max-w-sm rounded-lg bg-white border border-slate-200 p-5 shadow-2xl"
+      >
+        <div class="flex items-center gap-3 mb-4">
+          <div class="h-11 w-11 rounded-lg bg-red-600 text-white flex items-center justify-center">
+            <i class="fa-solid fa-lock"></i>
+          </div>
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+              Acesso restrito
+            </p>
+            <h1 class="text-xl font-black text-slate-900">Administração</h1>
+          </div>
+        </div>
+
+        <label class="block">
+          <span class="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Senha</span>
+          <div class="relative">
+            <input
+              id="accessPassword"
+              type="password"
+              autocomplete="current-password"
+              class="w-full p-4 pr-12 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Digite a senha"
+            />
+            <button
+              id="togglePassword"
+              type="button"
+              class="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg text-slate-400 hover:text-slate-700"
+              aria-label="Mostrar senha"
+            >
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </label>
+
+        <p
+          id="accessError"
+          class="hidden mt-3 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs font-bold text-red-700"
+        >
+          Senha incorreta.
+        </p>
+
+        <button
+          type="submit"
+          class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-lg shadow-lg shadow-red-200 transition-all active:scale-95 uppercase text-xs tracking-widest"
+        >
+          Acessar
+        </button>
+      </form>
+    </div>
+
+    <div class="max-w-3xl mx-auto">
+      <a
+        href="../index.html"
+        class="inline-flex items-center mb-5 text-slate-500 hover:text-red-600 transition-colors group"
+      >
+        <i class="fa-solid fa-arrow-left mr-2 transition-transform group-hover:-translate-x-1"></i>
+        Voltar ao Menu
+      </a>
+
+      <header class="rounded-lg bg-slate-950 p-5 text-white border-b-4 border-red-600">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="h-12 w-12 rounded-lg bg-red-600 flex items-center justify-center">
+              <i class="fa-solid fa-user-gear text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                SGI ConcreFuji
+              </p>
+              <h2 class="text-2xl font-black tracking-tight">Administração</h2>
+            </div>
+          </div>
+          <div
+            id="syncStatus"
+            class="hidden sm:inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-300"
+          >
+            <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+            Conectando
+          </div>
+        </div>
+      </header>
+
+      <main class="mt-5 grid gap-4">
+        <section class="grid md:grid-cols-2 gap-4">
+          <form id="formCliente" class="rounded-lg bg-white border border-slate-200 p-4 shadow-sm space-y-3">
+            <h3 id="clienteFormTitulo" class="font-black text-slate-800">Clientes</h3>
+            <input
+              id="clienteNome"
+              class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Nome do cliente"
+            />
+            <button
+              id="btnSalvarCliente"
+              type="submit"
+              class="w-full bg-slate-900 text-white font-black py-3 rounded-lg uppercase text-xs"
+            >
+              Cadastrar cliente
+            </button>
+            <button
+              id="btnCancelarCliente"
+              type="button"
+              class="hidden w-full bg-white border border-slate-200 text-slate-500 font-black py-3 rounded-lg uppercase text-xs"
+            >
+              Cancelar edição
+            </button>
+            <div id="clientesLista" class="space-y-2"></div>
+          </form>
+
+          <form id="formObra" class="rounded-lg bg-white border border-slate-200 p-4 shadow-sm space-y-3">
+            <h3 id="obraFormTitulo" class="font-black text-slate-800">Obras</h3>
+            <select
+              id="obraCliente"
+              class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+            ></select>
+            <input
+              id="obraNome"
+              class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Nome da obra"
+            />
+            <input
+              id="obraReferencia"
+              class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Referência da obra"
+            />
+            <input
+              id="obraEndereco"
+              class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Endereço completo"
+            />
+            <input
+              id="obraContato"
+              class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Contato da obra"
+            />
+            <textarea
+              id="obraObservacoes"
+              rows="3"
+              class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              placeholder="Observações"
+            ></textarea>
+            <button
+              id="btnSalvarObra"
+              type="submit"
+              class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-lg uppercase text-xs"
+            >
+              Cadastrar obra
+            </button>
+            <button
+              id="btnCancelarObra"
+              type="button"
+              class="hidden w-full bg-white border border-slate-200 text-slate-500 font-black py-3 rounded-lg uppercase text-xs"
+            >
+              Cancelar edição
+            </button>
+          </form>
+        </section>
+
+        <section class="rounded-lg bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
+            <h3 class="font-black text-slate-800">Obras cadastradas</h3>
+            <i class="fa-solid fa-building text-slate-300"></i>
+          </div>
+          <div id="obrasLista" class="divide-y divide-slate-100"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/administracao.js"></script>
+  </body>
+</html>

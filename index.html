@@ -53,9 +53,12 @@
           class="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full"
         >
           <span
+            id="firebaseStatusDot"
             class="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"
           ></span>
-          <span class="text-[10px] font-bold text-emerald-700 uppercase"
+          <span
+            id="firebaseStatus"
+            class="text-[10px] font-bold text-emerald-700 uppercase"
             >Online</span
           >
         </div>
@@ -101,6 +104,34 @@
         </div>
         <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
       </a>
+
+      <a
+        href="pages/enderecos-obras.html"
+        class="menu-card flex items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"
+      >
+        <div class="bg-emerald-50 text-emerald-700 p-4 rounded-2xl mr-4">
+          <i class="fa-solid fa-map-location-dot text-xl"></i>
+        </div>
+        <div class="flex-1">
+          <h3 class="font-bold text-slate-800">Endereço de Obras</h3>
+          <p class="text-xs text-slate-500">Consulta por obra ou referência</p>
+        </div>
+        <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
+      </a>
+
+      <a
+        href="pages/administracao.html"
+        class="menu-card flex items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"
+      >
+        <div class="bg-violet-50 text-violet-700 p-4 rounded-2xl mr-4">
+          <i class="fa-solid fa-user-gear text-xl"></i>
+        </div>
+        <div class="flex-1">
+          <h3 class="font-bold text-slate-800">Administração</h3>
+          <p class="text-xs text-slate-500">Clientes, obras e endereços</p>
+        </div>
+        <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
+      </a>
     </main>
 
     <nav
@@ -123,6 +154,20 @@
           <i class="fa-solid fa-calculator text-lg"></i>
           <span class="text-[10px] font-bold uppercase">Cálculos</span>
         </a>
+        <a
+          href="pages/enderecos-obras.html"
+          class="flex flex-col items-center gap-1 hover:text-slate-700 transition-colors"
+        >
+          <i class="fa-solid fa-map-location-dot text-lg"></i>
+          <span class="text-[10px] font-bold uppercase">Obras</span>
+        </a>
+        <a
+          href="pages/administracao.html"
+          class="flex flex-col items-center gap-1 hover:text-slate-700 transition-colors"
+        >
+          <i class="fa-solid fa-user-gear text-lg"></i>
+          <span class="text-[10px] font-bold uppercase">Admin</span>
+        </a>
       </div>
     </nav>
 
@@ -140,5 +185,8 @@
         &copy; 2026 ConcreFuji - CONCRETEC | Desenvolvido por Marcelo Pessoa
       </p>
     </footer>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
   </body>
 </html>

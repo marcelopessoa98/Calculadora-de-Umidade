@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Endereço de Obras - ConcreFuji</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      input {
+        font-size: 16px !important;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 min-h-screen p-4 pb-24 font-sans text-slate-900">
+    <div class="max-w-3xl mx-auto">
+      <a
+        href="../index.html"
+        class="inline-flex items-center mb-5 text-slate-500 hover:text-red-600 transition-colors group"
+      >
+        <i class="fa-solid fa-arrow-left mr-2 transition-transform group-hover:-translate-x-1"></i>
+        Voltar ao Menu
+      </a>
+
+      <header class="rounded-lg bg-slate-950 p-5 text-white border-b-4 border-red-600">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="h-12 w-12 rounded-lg bg-red-600 flex items-center justify-center">
+              <i class="fa-solid fa-map-location-dot text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                SGI ConcreFuji
+              </p>
+              <h1 class="text-2xl font-black tracking-tight">Endereço de Obras</h1>
+            </div>
+          </div>
+          <div
+            id="syncStatus"
+            class="hidden sm:inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-300"
+          >
+            <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+            Conectando
+          </div>
+        </div>
+      </header>
+
+      <section class="mt-5 rounded-lg bg-white border border-slate-200 p-4 shadow-sm">
+        <label class="block">
+          <span class="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">
+            Filtrar obras
+          </span>
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+            <input
+              id="buscaObra"
+              class="w-full p-4 pl-11 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Referência, nome da obra ou cliente"
+            />
+          </div>
+        </label>
+      </section>
+
+      <section class="mt-5 grid grid-cols-2 gap-3">
+        <article class="rounded-lg bg-white border border-slate-200 p-4 shadow-sm">
+          <p class="text-[10px] font-black uppercase text-slate-400">Obras</p>
+          <strong id="totalObras" class="text-3xl font-black text-slate-900">0</strong>
+        </article>
+        <article class="rounded-lg bg-white border border-slate-200 p-4 shadow-sm">
+          <p class="text-[10px] font-black uppercase text-slate-400">Filtradas</p>
+          <strong id="totalFiltradas" class="text-3xl font-black text-slate-900">0</strong>
+        </article>
+      </section>
+
+      <main id="obrasLista" class="mt-5 grid gap-4"></main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/enderecos-obras.js"></script>
+  </body>
+</html>
