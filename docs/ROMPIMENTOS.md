@@ -69,6 +69,7 @@ Configure somente no ambiente server-side:
 CONCREFUJI_USERNAME
 CONCREFUJI_PASSWORD
 CONCREFUJI_BASE_URL
+FIREBASE_SERVICE_ACCOUNT
 ```
 
 No painel da Vercel:

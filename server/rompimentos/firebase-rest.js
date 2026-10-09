@@ -1,69 +1,88 @@
 "use strict";
 
-class FirebaseRest {
-  constructor(baseUrl) {
-    this.baseUrl = String(baseUrl).replace(/\/$/, "");
-  }
+const { cert, getApps, initializeApp } = require("firebase-admin/app");
+const { getDatabase } = require("firebase-admin/database");
 
-  url(caminho) {
-    const seguro = String(caminho || "")
-      .split("/")
-      .filter(Boolean)
-      .map((parte) => encodeURIComponent(parte))
-      .join("/");
-    return `${this.baseUrl}/${seguro}.json`;
-  }
+function obterCredencial() {
+  const valor = String(process.env.FIREBASE_SERVICE_ACCOUNT || "").trim();
+  if (!valor) throw new Error("FIREBASE_CREDENCIAL_AUSENTE");
 
-  async obter(caminho) {
-    const resposta = await fetch(this.url(caminho), { signal: AbortSignal.timeout(10_000) });
-    if (!resposta.ok) throw new Error("FIREBASE_LEITURA_FALHOU");
-    return resposta.json();
-  }
-
-  async salvar(caminho, valor) {
-    const resposta = await fetch(this.url(caminho), {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(valor),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!resposta.ok) throw new Error("FIREBASE_ESCRITA_FALHOU");
-    return resposta.json();
-  }
-
-  async remover(caminho) {
-    const resposta = await fetch(this.url(caminho), {
-      method: "DELETE",
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!resposta.ok) throw new Error("FIREBASE_REMOCAO_FALHOU");
-  }
-
-  async tentarAdquirirLock(caminho, lock, agora = Date.now()) {
-    const url = this.url(caminho);
-    const leitura = await fetch(url, {
-      headers: { "X-Firebase-ETag": "true" },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!leitura.ok) throw new Error("FIREBASE_LOCK_FALHOU");
-
-    const atual = await leitura.json();
-    if (atual?.expiraEm && new Date(atual.expiraEm).getTime() > agora) return false;
-
-    const resposta = await fetch(url, {
-      method: "PUT",
-      headers: {
-        "content-type": "application/json",
-        "if-match": leitura.headers.get("etag") || "null_etag",
-      },
-      body: JSON.stringify(lock),
-      signal: AbortSignal.timeout(10_000),
-    });
-
-    if (resposta.status === 412) return false;
-    if (!resposta.ok) throw new Error("FIREBASE_LOCK_FALHOU");
-    return true;
+  try {
+    const credencial = JSON.parse(valor);
+    if (
+      credencial.project_id !== "sgi-concrefuji" ||
+      !credencial.client_email ||
+      !credencial.private_key
+    ) {
+      throw new Error("invalida");
+    }
+    return credencial;
+  } catch {
+    throw new Error("FIREBASE_CREDENCIAL_INVALIDA");
   }
 }
 
-module.exports = { FirebaseRest };
+function obterDatabase(baseUrl) {
+  const app = getApps()[0] || initializeApp({
+    credential: cert(obterCredencial()),
+    databaseURL: baseUrl,
+  });
+  return getDatabase(app);
+}
+
+function codigoErro(prefixo, erro) {
+  const detalhe = String(erro?.code || "ERRO_DESCONHECIDO")
+    .replace(/[^A-Za-z0-9_-]+/g, "_")
+    .slice(0, 80);
+  return new Error(`${prefixo}_${detalhe}`);
+}
+
+class FirebaseRest {
+  constructor(baseUrl) {
+    this.database = obterDatabase(baseUrl);
+  }
+
+  referencia(caminho) {
+    return this.database.ref(String(caminho || "").replace(/^\/+|\/+$/g, ""));
+  }
+
+  async obter(caminho) {
+    try {
+      const snapshot = await this.referencia(caminho).get();
+      return snapshot.val();
+    } catch (erro) {
+      throw codigoErro("FIREBASE_LEITURA_FALHOU", erro);
+    }
+  }
+
+  async salvar(caminho, valor) {
+    try {
+      await this.referencia(caminho).set(valor);
+      return valor;
+    } catch (erro) {
+      throw codigoErro("FIREBASE_ESCRITA_FALHOU", erro);
+    }
+  }
+
+  async remover(caminho) {
+    try {
+      await this.referencia(caminho).remove();
+    } catch (erro) {
+      throw codigoErro("FIREBASE_REMOCAO_FALHOU", erro);
+    }
+  }
+
+  async tentarAdquirirLock(caminho, lock, agora = Date.now()) {
+    try {
+      const resultado = await this.referencia(caminho).transaction((atual) => {
+        if (atual?.expiraEm && new Date(atual.expiraEm).getTime() > agora) return;
+        return lock;
+      }, undefined, false);
+      return resultado.committed;
+    } catch (erro) {
+      throw codigoErro("FIREBASE_LOCK_FALHOU", erro);
+    }
+  }
+}
+
+module.exports = { FirebaseRest, obterCredencial };

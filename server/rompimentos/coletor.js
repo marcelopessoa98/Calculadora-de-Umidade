@@ -1,9 +1,6 @@
 "use strict";
 
-const { randomUUID } = require("node:crypto");
-const { rm } = require("node:fs/promises");
 const { chromium: playwrightChromium } = require("playwright-core");
-const serverlessChromium = require("@sparticuz/chromium");
 const { datasDaSemana } = require("./datas");
 const { parseTabela } = require("./parser");
 
@@ -14,33 +11,40 @@ const MESES = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
-async function abrirNavegador() {
-  const caminhoLocal = String(process.env.CHROME_EXECUTABLE_PATH || "").trim();
-  const userDataDir = `/tmp/concrefuji-${randomUUID()}`;
-  const executablePath = caminhoLocal || await serverlessChromium.executablePath();
-  const args = caminhoLocal ? [`--user-data-dir=${userDataDir}`] : [
-    ...serverlessChromium.args,
-    `--user-data-dir=${userDataDir}`,
-  ];
-  const browser = await playwrightChromium.launch({ executablePath, args, headless: true });
-  return { browser, userDataDir };
+function linksPendentesCe(page) {
+  return page
+    .locator("a[href]")
+    .filter({ hasText: /Pendentes\s*\(CE\)/i });
 }
 
-async function clicarPorNome(page, regex) {
+async function abrirNavegador() {
+  const caminhoLocal = String(process.env.CHROME_EXECUTABLE_PATH || "").trim();
+  // @sparticuz/chromium >= 153 is ESM. Dynamic import keeps this CommonJS
+  // module compatible with the Vercel function runtime.
+  const serverlessChromium = caminhoLocal
+    ? null
+    : (await import("@sparticuz/chromium")).default;
+  const executablePath = caminhoLocal || await serverlessChromium.executablePath();
+  const args = caminhoLocal ? [] : serverlessChromium.args;
+  const browser = await playwrightChromium.launch({ executablePath, args, headless: true });
+  return browser;
+}
+
+async function clicarPorNome(page, regex, codigoErro = "ETAPA_NAVEGACAO_NAO_ENCONTRADA") {
   const candidatos = [
     page.getByRole("link", { name: regex }),
     page.getByRole("button", { name: regex }),
     page.getByText(regex, { exact: true }),
-  ];
+  ].map((candidato) => candidato.filter({ visible: true }));
 
-  for (const candidato of candidatos) {
-    if (await candidato.count()) {
-      await candidato.first().click();
-      await page.waitForLoadState("domcontentloaded");
-      return;
-    }
+  const alvo = candidatos.slice(1).reduce((uniao, candidato) => uniao.or(candidato), candidatos[0]);
+  try {
+    await alvo.first().waitFor({ state: "visible", timeout: 10_000 });
+    await alvo.first().click();
+    await page.waitForLoadState("domcontentloaded");
+  } catch {
+    throw new Error(codigoErro);
   }
-  throw new Error("ETAPA_NAVEGACAO_NAO_ENCONTRADA");
 }
 
 async function realizarLogin(page, configuracao) {
@@ -79,8 +83,12 @@ async function realizarLogin(page, configuracao) {
 }
 
 async function acessarCalendario(page) {
-  await clicarPorNome(page, /^Relat[oó]rios$/i);
-  await clicarPorNome(page, /^Calend[aá]rio de Rompimento$/i);
+  await clicarPorNome(page, /^Relat[oó]rios$/i, "MENU_RELATORIOS_NAO_ENCONTRADO");
+  await clicarPorNome(
+    page,
+    /Calend[aá]rio.*Rompimentos?/i,
+    "CALENDARIO_ROMPIMENTO_NAO_ENCONTRADO",
+  );
 }
 
 async function mesVisivel(page) {
@@ -112,12 +120,24 @@ async function navegarAteMes(page, inicioSemana) {
 async function localizarPendentesCe(page, datasSemana) {
   const diasValidos = new Set(datasSemana.map((data) => Number(data.slice(-2))));
   const anoMes = datasSemana[0].slice(0, 7);
-  const links = page.getByText(TEXTO_PENDENTES_CE);
+  const links = linksPendentesCe(page);
   const encontrados = [];
 
   for (let indice = 0; indice < await links.count(); indice += 1) {
     const link = links.nth(indice);
     const contexto = await link.evaluate((elemento) => {
+      const celula = elemento.closest("td");
+      if (celula) {
+        const atributos = ["data-date", "data-data", "data-day", "datetime"];
+        for (const nome of atributos) {
+          const valor = celula.getAttribute?.(nome);
+          if (valor) return { atributo: valor, texto: celula.innerText || "" };
+        }
+        const linhas = String(celula.innerText || "").split(/\n+/).map((item) => item.trim());
+        const dia = linhas.find((item) => /^\d{1,2}$/.test(item));
+        if (dia) return { atributo: "", texto: celula.innerText || "", dia: Number(dia) };
+      }
+
       let atual = elemento;
       for (let nivel = 0; atual && nivel < 7; nivel += 1, atual = atual.parentElement) {
         const atributos = ["data-date", "data-data", "data-day", "datetime"];
@@ -150,16 +170,41 @@ async function localizarPendentesCe(page, datasSemana) {
 }
 
 async function lerTabelaAtual(page, dataPadrao, coletadoEm) {
+  await page.locator("table tbody tr").first().waitFor({
+    state: "attached",
+    timeout: 10_000,
+  }).catch(() => {
+    throw new Error("TABELA_ROMPIMENTOS_SEM_LINHAS");
+  });
+
   const tabelas = page.locator("table");
   for (let indice = 0; indice < await tabelas.count(); indice += 1) {
     const tabela = tabelas.nth(indice);
-    const cabecalhos = await tabela.locator("thead th, tr:first-child th").allTextContents();
-    if (!cabecalhos.length) continue;
-    const linhas = await tabela.locator("tbody tr").evaluateAll((trs) =>
-      trs.map((tr) => [...tr.querySelectorAll("td")].map((td) => (td.innerText || "").trim())),
-    );
+    const estrutura = await tabela.locator("tr").evaluateAll((trs) => {
+      const celulas = (tr) => [...tr.querySelectorAll("th, td")]
+        .map((celula) => (celula.innerText || "").trim());
+      const normalizar = (valor) => String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+      const indiceCabecalho = trs.findIndex((tr) => {
+        const nomes = celulas(tr).map(normalizar);
+        return nomes.includes("obra") && nomes.includes("cp") && nomes.includes("idade");
+      });
+      if (indiceCabecalho < 0) return null;
+      return {
+        cabecalhos: celulas(trs[indiceCabecalho]),
+        linhas: trs.slice(indiceCabecalho + 1)
+          .map((tr) => [...tr.querySelectorAll("td")]
+            .map((td) => (td.innerText || "").trim()))
+          .filter((linha) => linha.length > 0),
+      };
+    });
+    if (!estrutura) continue;
     try {
-      return parseTabela({ cabecalhos, linhas, dataPadrao, coletadoEm });
+      return parseTabela({ ...estrutura, dataPadrao, coletadoEm });
     } catch (erro) {
       if (erro.message !== "CABECALHOS_TABELA_NAO_RECONHECIDOS") throw erro;
     }
@@ -168,7 +213,7 @@ async function lerTabelaAtual(page, dataPadrao, coletadoEm) {
 }
 
 async function coletarRompimentosConcreFuji(configuracao, inicioSemana) {
-  const { browser, userDataDir } = await abrirNavegador();
+  const browser = await abrirNavegador();
   const coletadoEm = new Date().toISOString();
   const datasSemana = datasDaSemana(inicioSemana);
   const registros = [];
@@ -184,10 +229,18 @@ async function coletarRompimentosConcreFuji(configuracao, inicioSemana) {
       await navegarAteMes(page, datasDoMes[0]);
       const pendencias = await localizarPendentesCe(page, datasDoMes);
       for (const pendencia of pendencias) {
-        const linksAtuais = page.getByText(TEXTO_PENDENTES_CE);
+        const linksAtuais = linksPendentesCe(page);
         if (pendencia.indice >= await linksAtuais.count()) continue;
-        await linksAtuais.nth(pendencia.indice).click();
-        await page.waitForLoadState("domcontentloaded");
+        const linkAtual = linksAtuais.nth(pendencia.indice);
+        const href = await linkAtual.getAttribute("href");
+        if (href) {
+          await page.goto(new URL(href, page.url()).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+        } else {
+          await linkAtual.click();
+          await page.waitForLoadState("domcontentloaded");
+        }
         registros.push(...await lerTabelaAtual(page, pendencia.data, coletadoEm));
         await page.goBack({ waitUntil: "domcontentloaded" });
       }
@@ -196,7 +249,6 @@ async function coletarRompimentosConcreFuji(configuracao, inicioSemana) {
     return { inicioSemana, coletadoEm, dados: registros };
   } finally {
     await browser.close().catch(() => {});
-    await rm(userDataDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 

@@ -10,6 +10,7 @@ const { filtrarPorFuncionario, agruparRompimentos } = require("./normalizacao");
 function coletaValida(coleta, agora = Date.now()) {
   return Boolean(
     coleta &&
+    coleta.versao === 9 &&
     coleta.status === "concluida" &&
     Array.isArray(coleta.dados) &&
     new Date(coleta.expiraEm).getTime() > agora,
@@ -47,6 +48,7 @@ async function obterColetaGlobal(firebase, configuracao, inicioSemana) {
   try {
     const nova = await coletarRompimentosConcreFuji(configuracao, inicioSemana);
     const coleta = {
+      versao: 9,
       status: "concluida",
       inicioSemana,
       coletadoEm: nova.coletadoEm,
