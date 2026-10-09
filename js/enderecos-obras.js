@@ -24,8 +24,8 @@ function iniciarFirebase() {
   database = window.SGIFirebase?.database;
 
   if (!database) {
-    atualizarStatus("Firebase indisponível", "bg-red-500");
-    el.obrasLista.innerHTML = vazio("Não foi possível carregar o Firebase.");
+    atualizarStatus("Indisponível", "bg-red-500");
+    el.obrasLista.innerHTML = vazio("Não foi possível carregar as obras. Tente novamente.");
     return;
   }
 
@@ -124,9 +124,8 @@ function atualizarStatus(texto, corClasse) {
 }
 
 function tratarErroFirebase(error) {
-  console.error("Erro no Firebase:", error);
-  atualizarStatus(`Erro: ${error.code || "Firebase"}`, "bg-red-500");
-  el.obrasLista.innerHTML = vazio(`Erro ao acessar o Firebase: ${error.code || error.message}`);
+  atualizarStatus("Indisponível", "bg-red-500");
+  el.obrasLista.innerHTML = vazio("Não foi possível carregar as obras. Tente novamente.");
 }
 
 function objetoParaLista(objeto) {

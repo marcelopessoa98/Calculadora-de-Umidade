@@ -196,6 +196,59 @@
           </div>
           <div id="obrasLista" class="divide-y divide-slate-100"></div>
         </section>
+
+        <section class="rounded-lg bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-widest text-red-600">Rompimentos</p>
+              <h3 class="font-black text-slate-800">Funcionários dos rompimentos</h3>
+            </div>
+            <i class="fa-solid fa-users text-slate-300"></i>
+          </div>
+
+          <form id="formFuncionarioRompimento" class="p-4 space-y-4">
+            <h4 id="funcionarioFormTitulo" class="font-black text-slate-800">Cadastrar funcionário</h4>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="block">
+                <span class="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Nome</span>
+                <input id="funcionarioNome" autocomplete="given-name" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500" placeholder="Marcelo" />
+              </label>
+              <label class="block">
+                <span class="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Sobrenome</span>
+                <input id="funcionarioSobrenome" autocomplete="family-name" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500" placeholder="Silva" />
+              </label>
+            </div>
+
+            <label class="block">
+              <span class="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Obra</span>
+              <input id="funcionarioObra" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-red-500" placeholder="Laboratório Ceará" />
+            </label>
+
+            <fieldset>
+              <legend class="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">Referências permitidas</legend>
+              <div id="referenciasOpcoes" class="grid grid-cols-2 gap-2 sm:grid-cols-3"></div>
+              <div class="mt-2 flex gap-2">
+                <input id="novaReferencia" class="min-w-0 flex-1 p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-sm uppercase outline-none focus:ring-2 focus:ring-red-500" placeholder="Outra referência" />
+                <button id="btnAdicionarReferencia" type="button" class="min-h-11 shrink-0 rounded-lg bg-slate-900 px-4 text-xs font-black uppercase text-white">Adicionar</button>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend class="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">Idades permitidas</legend>
+              <div id="idadesOpcoes" class="grid grid-cols-2 gap-2 sm:grid-cols-3"></div>
+            </fieldset>
+
+            <button id="btnSalvarFuncionario" type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-lg uppercase text-xs">
+              Cadastrar funcionário
+            </button>
+            <button id="btnCancelarFuncionario" type="button" class="hidden w-full bg-white border border-slate-200 text-slate-500 font-black py-3 rounded-lg uppercase text-xs">
+              Cancelar edição
+            </button>
+          </form>
+
+          <div id="funcionariosRompimentosLista" class="divide-y divide-slate-100 border-t border-slate-100"></div>
+        </section>
       </main>
     </div>
 

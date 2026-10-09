@@ -25,7 +25,7 @@
   }
 
   if (!window.firebase) {
-    setStatus("Firebase indisponível", "bg-red-500", "text-red-700");
+    setStatus("Indisponível", "bg-red-500", "text-red-700");
     window.SGIFirebase = { app: null, database: null, config: firebaseConfig };
     return;
   }
@@ -49,14 +49,13 @@
       .ref(".info/connected")
       .on("value", (snapshot) => {
         if (snapshot.val() === true) {
-          setStatus("Firebase conectado", "bg-emerald-500 animate-pulse", "text-emerald-700");
+          setStatus("Online", "bg-emerald-500 animate-pulse", "text-emerald-700");
         } else {
-          setStatus("Firebase offline", "bg-amber-400", "text-amber-700");
+          setStatus("Offline", "bg-amber-400", "text-amber-700");
         }
       });
   } catch (error) {
-    console.error("Erro ao inicializar Firebase:", error);
-    setStatus("Erro no Firebase", "bg-red-500", "text-red-700");
+    setStatus("Indisponível", "bg-red-500", "text-red-700");
     window.SGIFirebase = { app: null, database: null, config: firebaseConfig };
   }
 })();
