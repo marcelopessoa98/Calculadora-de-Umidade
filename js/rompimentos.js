@@ -10,6 +10,7 @@ let mesExibido = inicioDoMes(new Date());
 let dataSelecionada = dataLocalIso(new Date());
 let datasComRompimentos = new Set();
 let requisicaoAtual = 0;
+const cacheSemanas = new Map();
 
 const el = {
   selecaoFuncionario: document.getElementById("selecaoFuncionario"),
@@ -178,6 +179,14 @@ function renderizarCalendario() {
 async function carregarRompimentos() {
   if (!funcionarioSelecionado) return;
   const idRequisicao = ++requisicaoAtual;
+  const chaveCache = `${funcionarioSelecionado.id}:${inicioSemanaLocalIso(dataSelecionada)}`;
+  const resultadoEmCache = cacheSemanas.get(chaveCache);
+  if (resultadoEmCache) {
+    datasComRompimentos = new Set(resultadoEmCache.datasComRompimentos || []);
+    renderizarCalendario();
+    renderizarRompimentos((resultadoEmCache.rompimentos || []).filter((grupo) => grupo.data === dataSelecionada));
+    return;
+  }
   mostrarEstado(MENSAGEM_CARREGANDO);
 
   try {
@@ -192,6 +201,7 @@ async function carregarRompimentos() {
     if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
     if (idRequisicao !== requisicaoAtual) return;
 
+    cacheSemanas.set(chaveCache, resultado);
     datasComRompimentos = new Set(resultado.datasComRompimentos || []);
     renderizarCalendario();
     renderizarRompimentos((resultado.rompimentos || []).filter((grupo) => grupo.data === dataSelecionada));
@@ -286,6 +296,13 @@ function dataLocalIso(data) {
 function dataIsoParaLocal(iso) {
   const [ano, mes, dia] = iso.split("-").map(Number);
   return new Date(ano, mes - 1, dia);
+}
+
+function inicioSemanaLocalIso(iso) {
+  const data = dataIsoParaLocal(iso);
+  const diaSemana = data.getDay();
+  data.setDate(data.getDate() + (diaSemana === 0 ? -6 : 1 - diaSemana));
+  return dataLocalIso(data);
 }
 
 function nomeCompleto(funcionario) {

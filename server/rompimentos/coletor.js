@@ -10,6 +10,26 @@ const MESES = [
   "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
+const RECURSOS_DISPENSAVEIS = new Set(["image", "font", "media"]);
+
+function recursoDispensavel(tipo) {
+  return RECURSOS_DISPENSAVEIS.has(String(tipo || ""));
+}
+
+function resolverUrlDetalhe(href, baseUrl) {
+  if (!href) return "";
+  try {
+    const url = new URL(href, baseUrl);
+    const base = new URL(baseUrl);
+    if (!/^https?:$/.test(url.protocol)) return "";
+    if (url.origin !== base.origin) return "";
+    if (`${url.pathname}${url.search}` === `${base.pathname}${base.search}`) return "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
 
 function linksPendentesCe(page) {
   return page
@@ -163,7 +183,14 @@ async function localizarPendentesCe(page, datasSemana) {
         ? `${anoMes}-${String(contexto.dia).padStart(2, "0")}`
         : "";
 
-    if (datasSemana.includes(data)) encontrados.push({ data, indice });
+    if (datasSemana.includes(data)) {
+      const href = await link.getAttribute("href");
+      encontrados.push({
+        data,
+        indice,
+        url: resolverUrlDetalhe(href, page.url()),
+      });
+    }
   }
 
   return encontrados;
@@ -220,27 +247,34 @@ async function coletarRompimentosConcreFuji(configuracao, inicioSemana) {
 
   try {
     const context = await browser.newContext({ locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
+    await context.route("**/*", (route) => {
+      if (recursoDispensavel(route.request().resourceType())) return route.abort();
+      return route.continue();
+    });
     const page = await context.newPage();
     await realizarLogin(page, configuracao);
     await acessarCalendario(page);
+    const paginaDetalhes = await context.newPage();
     const datasPorMes = [...new Set(datasSemana.map((data) => data.slice(0, 7)))];
     for (const anoMes of datasPorMes) {
       const datasDoMes = datasSemana.filter((data) => data.startsWith(anoMes));
       await navegarAteMes(page, datasDoMes[0]);
       const pendencias = await localizarPendentesCe(page, datasDoMes);
       for (const pendencia of pendencias) {
+        if (pendencia.url) {
+          await paginaDetalhes.goto(pendencia.url, {
+            waitUntil: "domcontentloaded",
+            timeout: 30_000,
+          });
+          registros.push(...await lerTabelaAtual(paginaDetalhes, pendencia.data, coletadoEm));
+          continue;
+        }
+
         const linksAtuais = linksPendentesCe(page);
         if (pendencia.indice >= await linksAtuais.count()) continue;
         const linkAtual = linksAtuais.nth(pendencia.indice);
-        const href = await linkAtual.getAttribute("href");
-        if (href) {
-          await page.goto(new URL(href, page.url()).toString(), {
-            waitUntil: "domcontentloaded",
-          });
-        } else {
-          await linkAtual.click();
-          await page.waitForLoadState("domcontentloaded");
-        }
+        await linkAtual.click();
+        await page.waitForLoadState("domcontentloaded");
         registros.push(...await lerTabelaAtual(page, pendencia.data, coletadoEm));
         await page.goBack({ waitUntil: "domcontentloaded" });
       }
@@ -254,6 +288,8 @@ async function coletarRompimentosConcreFuji(configuracao, inicioSemana) {
 
 module.exports = {
   TEXTO_PENDENTES_CE,
+  recursoDispensavel,
+  resolverUrlDetalhe,
   coletarRompimentosConcreFuji,
   lerTabelaAtual,
 };

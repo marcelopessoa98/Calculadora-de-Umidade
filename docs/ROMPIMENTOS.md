@@ -15,6 +15,8 @@ Fluxo:
 7. a API filtra referências e idades do funcionário;
 8. os CPs são normalizados e agrupados para apresentação.
 
+Para reduzir o tempo de espera, o coletor mantém o calendário aberto em uma aba, consulta os links de detalhe em outra aba autenticada e não baixa imagens, fontes ou mídia. Scripts, folhas de estilo e requisições de dados continuam habilitados. No navegador do funcionário, a resposta semanal também é reutilizada ao alternar entre datas da mesma semana.
+
 `Pendentes (MA)` e `Lançados` não fazem parte dos localizadores aceitos pelo coletor.
 
 ## Estrutura no Realtime Database
