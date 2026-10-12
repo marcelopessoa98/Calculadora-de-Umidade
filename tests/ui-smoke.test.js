@@ -50,6 +50,21 @@ async function prepararPagina(context) {
     rota.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
   );
   await context.addInitScript(() => {
+    const clientes = Object.fromEntries(Array.from({ length: 12 }, (_, indice) => [
+      `cliente-${indice + 1}`,
+      { nome: `Cliente ${String(indice + 1).padStart(2, "0")}` },
+    ]));
+    const obras = Object.fromEntries(Array.from({ length: 12 }, (_, indice) => [
+      `obra-${indice + 1}`,
+      {
+        clienteId: `cliente-${indice + 1}`,
+        nome: `Obra ${String(indice + 1).padStart(2, "0")}`,
+        referencia: `REF-${indice + 1}`,
+        endereco: `Rua ${indice + 1}`,
+        contato: "",
+        observacoes: "",
+      },
+    ]));
     const funcionarios = {
       teste: {
         nome: "Marcelo",
@@ -71,8 +86,10 @@ async function prepararPagina(context) {
             return {
               on(evento, sucesso) {
                 const valor = caminho === ".info/connected" ? true
-                  : caminho === "administracao/funcionariosRompimentos" ? funcionarios
-                    : null;
+                  : caminho === "administracao/clientes" ? clientes
+                    : caminho === "administracao/obras" ? obras
+                      : caminho === "administracao/funcionariosRompimentos" ? funcionarios
+                        : null;
                 queueMicrotask(() => sucesso({ val: () => valor }));
               },
               push: async (valor) => { window.__dbActions.push({ tipo: "push", caminho, valor }); return {}; },
@@ -111,10 +128,15 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
     await prepararPagina(context);
     const page = await context.newPage();
+    const errosPagina = [];
+    page.on("pageerror", (erro) => errosPagina.push(erro.message));
     const base = `http://127.0.0.1:${porta}`;
 
     await page.goto(base);
     await assert.doesNotReject(() => page.getByRole("link", { name: /Rompimentos/i }).waitFor());
+    await page.getByRole("link", { name: /Ensaios/i }).first().click();
+    await assert.doesNotReject(() => page.getByRole("link", { name: /Umidade de Areia/i }).waitFor());
+    await assert.doesNotReject(() => page.getByRole("link", { name: /Conversor Técnico/i }).waitFor());
 
     await page.goto(`${base}/pages/umidade.html`);
     await page.locator("#pesoUmido").fill("100");
@@ -128,11 +150,52 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.locator("#btnProcessar").click();
     assert.equal(await page.locator("#resBox").isVisible(), true);
 
+    await page.goto(`${base}/pages/enderecos-obras.html`);
+    await assert.doesNotReject(() => page.locator("#buscaObra").waitFor());
+
     await page.goto(`${base}/pages/administracao.html`);
+    assert.equal(await page.locator("#accessModal").isVisible(), true);
     await page.evaluate(() => sessionStorage.setItem("sgi_concrefuji_admin_autorizado", "sim"));
     await page.reload();
-    assert.equal(await page.locator("#formFuncionarioRompimento").isVisible(), true);
+    await page.getByRole("button", { name: /Clientes cadastrados/i }).click();
+    assert.equal(await page.locator("#clientesLista > *").count(), 10);
+    await page.locator("#buscaClientes").fill("Cliente 12");
+    assert.equal(await page.locator("#clientesLista > *").count(), 1);
+    assert.match(await page.locator("#paginacaoClientes").textContent(), /Página 1 de 1/);
+
+    await page.locator("#buscaClientes").fill("");
+    await page.getByRole("button", { name: "Editar cliente" }).first().click();
+    await page.locator("#clienteNome").fill("Cliente atualizado");
+    await page.locator("#btnSalvarCliente").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "update" && acao.caminho === "administracao/clientes/cliente-1"));
+    await page.locator("#btnNovoCliente").click();
+    await page.locator("#clienteNome").fill("Novo cliente");
+    await page.locator("#btnSalvarCliente").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/clientes"));
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Excluir cliente" }).first().click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "update" && acao.caminho === ""));
+
+    await page.locator('[data-admin-view="obras"]:visible').click();
+    assert.equal(await page.locator("#obrasLista > *").count(), 10);
+    await page.getByRole("button", { name: "Editar obra" }).first().click();
+    await page.locator("#obraNome").fill("Obra atualizada");
+    await page.locator("#btnSalvarObra").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "update" && acao.caminho.startsWith("administracao/obras/")));
+    await page.locator("#btnNovaObra").click();
+    await page.locator("#obraCliente").selectOption("cliente-1");
+    await page.locator("#obraNome").fill("Nova obra");
+    await page.locator("#obraReferencia").fill("NOVA-REF");
+    await page.locator("#obraEndereco").fill("Rua Nova, 100");
+    await page.locator("#btnSalvarObra").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/obras"));
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Excluir obra" }).first().click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "remove" && acao.caminho.startsWith("administracao/obras/")));
+
+    await page.locator('[data-admin-view="funcionarios"]:visible').click();
     await page.getByRole("button", { name: "Editar funcionário" }).click();
+    assert.equal(await page.locator("#formFuncionarioRompimento").isVisible(), true);
     assert.equal(await page.locator("#funcionarioNome").inputValue(), "Marcelo");
     await page.locator("#funcionarioObra").fill("Obra atualizada");
     await page.locator("#btnSalvarFuncionario").click();
@@ -140,6 +203,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Excluir funcionário" }).click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "remove" && acao.caminho.endsWith("/teste")));
+    await page.locator("#btnNovoFuncionario").click();
     await page.locator("#funcionarioNome").fill("João");
     await page.locator("#funcionarioSobrenome").fill("Souza");
     await page.locator("#funcionarioObra").fill("Laboratório");
@@ -147,6 +211,13 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.locator('input[name="funcionarioIdade"][value="7"]').check();
     await page.locator("#btnSalvarFuncionario").click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/funcionariosRompimentos"));
+
+    for (const largura of [320, 390, 768, 1280]) {
+      await page.setViewportSize({ width: largura, height: 900 });
+      await page.goto(`${base}/pages/administracao.html`);
+      const overflowAdmin = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      assert.ok(overflowAdmin <= 1, `overflow horizontal na administração em ${largura}px: ${overflowAdmin}px`);
+    }
 
     for (const largura of [320, 360, 375, 390, 412, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });
@@ -156,6 +227,8 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       assert.ok(overflow <= 1, `overflow horizontal em ${largura}px: ${overflow}px`);
     }
+
+    assert.deepEqual(errosPagina, []);
 
     await context.close();
   } finally {

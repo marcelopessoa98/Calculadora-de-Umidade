@@ -51,3 +51,4 @@ test("filtra múltiplas referências e idades do funcionário", () => {
   });
   assert.deepEqual(filtrados, [registros[1], registros[2]]);
 });
+

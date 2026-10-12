@@ -4,6 +4,7 @@ const DB_CLIENTES = "administracao/clientes";
 const DB_OBRAS = "administracao/obras";
 const DB_FUNCIONARIOS_ROMPIMENTOS = "administracao/funcionariosRompimentos";
 const IDADES_PADRAO = [3, 7, 14, 28, 56, 63];
+const ITENS_POR_PAGINA = 10;
 
 let database = null;
 let clientes = [];
@@ -16,6 +17,7 @@ let funcionariosRompimentos = [];
 let funcionariosRompimentosCarregados = false;
 let funcionarioEmEdicaoId = "";
 let referenciasDisponiveis = new Set(["CSP", "VSP", "GSF"]);
+const paginas = { clientes: 1, obras: 1, funcionarios: 1 };
 
 const el = {
   accessModal: document.getElementById("accessModal"),
@@ -24,6 +26,9 @@ const el = {
   accessError: document.getElementById("accessError"),
   togglePassword: document.getElementById("togglePassword"),
   syncStatus: document.getElementById("syncStatus"),
+  clientesTotal: document.getElementById("clientesTotal"),
+  obrasTotal: document.getElementById("obrasTotal"),
+  funcionariosTotal: document.getElementById("funcionariosTotal"),
 
   formCliente: document.getElementById("formCliente"),
   clienteFormTitulo: document.getElementById("clienteFormTitulo"),
@@ -31,6 +36,10 @@ const el = {
   btnSalvarCliente: document.getElementById("btnSalvarCliente"),
   btnCancelarCliente: document.getElementById("btnCancelarCliente"),
   clientesLista: document.getElementById("clientesLista"),
+  buscaClientes: document.getElementById("buscaClientes"),
+  paginacaoClientes: document.getElementById("paginacaoClientes"),
+  btnNovoCliente: document.getElementById("btnNovoCliente"),
+  modalCliente: document.getElementById("modalCliente"),
 
   formObra: document.getElementById("formObra"),
   obraFormTitulo: document.getElementById("obraFormTitulo"),
@@ -43,6 +52,10 @@ const el = {
   btnSalvarObra: document.getElementById("btnSalvarObra"),
   btnCancelarObra: document.getElementById("btnCancelarObra"),
   obrasLista: document.getElementById("obrasLista"),
+  buscaObras: document.getElementById("buscaObras"),
+  paginacaoObras: document.getElementById("paginacaoObras"),
+  btnNovaObra: document.getElementById("btnNovaObra"),
+  modalObra: document.getElementById("modalObra"),
 
   formFuncionarioRompimento: document.getElementById("formFuncionarioRompimento"),
   funcionarioFormTitulo: document.getElementById("funcionarioFormTitulo"),
@@ -56,6 +69,10 @@ const el = {
   btnSalvarFuncionario: document.getElementById("btnSalvarFuncionario"),
   btnCancelarFuncionario: document.getElementById("btnCancelarFuncionario"),
   funcionariosRompimentosLista: document.getElementById("funcionariosRompimentosLista"),
+  buscaFuncionarios: document.getElementById("buscaFuncionarios"),
+  paginacaoFuncionarios: document.getElementById("paginacaoFuncionarios"),
+  btnNovoFuncionario: document.getElementById("btnNovoFuncionario"),
+  modalFuncionario: document.getElementById("modalFuncionario"),
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -116,8 +133,83 @@ function registrarEventos() {
     }
   });
   el.funcionariosRompimentosLista.addEventListener("click", tratarCliqueFuncionario);
+  document.querySelectorAll("[data-admin-view], [data-open-view]").forEach((botao) => {
+    botao.addEventListener("click", () => mostrarArea(botao.dataset.adminView || botao.dataset.openView));
+  });
+  document.querySelectorAll("[data-close-modal]").forEach((botao) => {
+    botao.addEventListener("click", () => fecharModal(document.getElementById(botao.dataset.closeModal)));
+  });
+  document.querySelectorAll(".admin-modal").forEach((modal) => {
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) fecharModal(modal);
+    });
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") fecharModal(document.querySelector(".admin-modal:not(.hidden)"));
+  });
+  el.btnNovoCliente.addEventListener("click", () => {
+    cancelarEdicaoCliente(false);
+    abrirModal(el.modalCliente, el.clienteNome);
+  });
+  el.btnNovaObra.addEventListener("click", () => {
+    cancelarEdicaoObra(false);
+    abrirModal(el.modalObra, el.obraCliente);
+  });
+  el.btnNovoFuncionario.addEventListener("click", () => {
+    cancelarEdicaoFuncionario(false);
+    abrirModal(el.modalFuncionario, el.funcionarioNome);
+  });
+  configurarBusca(el.buscaClientes, "clientes", renderizarClientes);
+  configurarBusca(el.buscaObras, "obras", renderizarObras);
+  configurarBusca(el.buscaFuncionarios, "funcionarios", renderizarFuncionariosRompimentos);
+  configurarPaginacao(el.paginacaoClientes, "clientes", renderizarClientes);
+  configurarPaginacao(el.paginacaoObras, "obras", renderizarObras);
+  configurarPaginacao(el.paginacaoFuncionarios, "funcionarios", renderizarFuncionariosRompimentos);
   renderizarIdades();
   renderizarReferencias();
+}
+
+function mostrarArea(area) {
+  document.querySelectorAll(".admin-view").forEach((view) => {
+    view.hidden = view.id !== `view-${area}`;
+  });
+  document.querySelectorAll(".admin-nav").forEach((botao) => {
+    const ativo = botao.dataset.adminView === area;
+    botao.classList.toggle("admin-nav-active", ativo);
+    botao.classList.toggle("bg-white", !ativo);
+    botao.setAttribute("aria-current", ativo ? "page" : "false");
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function abrirModal(modal, foco) {
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  document.body.classList.add("modal-open");
+  requestAnimationFrame(() => foco?.focus());
+}
+
+function fecharModal(modal) {
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+  if (!document.querySelector(".admin-modal:not(.hidden)")) document.body.classList.remove("modal-open");
+}
+
+function configurarBusca(input, chave, renderizar) {
+  input.addEventListener("input", () => {
+    paginas[chave] = 1;
+    renderizar();
+  });
+}
+
+function configurarPaginacao(container, chave, renderizar) {
+  container.addEventListener("click", (event) => {
+    const botao = event.target.closest("button[data-page]");
+    if (!botao || botao.disabled) return;
+    paginas[chave] = Number(botao.dataset.page);
+    renderizar();
+  });
 }
 
 function iniciarFirebase() {
@@ -171,6 +263,9 @@ function renderizarTudo() {
   renderizarClientes();
   renderizarObras();
   renderizarFuncionariosRompimentos();
+  el.clientesTotal.textContent = clientesCarregados ? clientes.length : "—";
+  el.obrasTotal.textContent = obrasCarregadas ? obras.length : "—";
+  el.funcionariosTotal.textContent = funcionariosRompimentosCarregados ? funcionariosRompimentos.length : "—";
 
   if (clientesCarregados && obrasCarregadas && funcionariosRompimentosCarregados) {
     atualizarStatus("Sincronizado", "bg-emerald-400");
@@ -227,13 +322,25 @@ function idadesSelecionadas() {
 }
 
 function renderizarFuncionariosRompimentos() {
-  if (!funcionariosRompimentos.length) {
-    el.funcionariosRompimentosLista.innerHTML = vazio("Nenhum funcionário cadastrado para rompimentos.");
+  const termo = normalizarBusca(el.buscaFuncionarios.value);
+  const filtrados = funcionariosRompimentos.filter((funcionario) =>
+    normalizarBusca([
+      nomeCompletoFuncionario(funcionario),
+      funcionario.obra,
+      ...(funcionario.referencias || []),
+      ...(funcionario.idades || []).map((idade) => `${idade} dias`),
+    ].join(" ")).includes(termo),
+  );
+  const pagina = paginar(filtrados, "funcionarios");
+
+  if (!filtrados.length) {
+    el.funcionariosRompimentosLista.innerHTML = vazio(termo ? "Nenhum funcionário encontrado." : "Nenhum funcionário cadastrado para rompimentos.");
+    renderizarPaginacao(el.paginacaoFuncionarios, pagina, "funcionarios");
     return;
   }
 
   el.funcionariosRompimentosLista.innerHTML = "";
-  funcionariosRompimentos.forEach((funcionario) => {
+  pagina.itens.forEach((funcionario) => {
     const article = document.createElement("article");
     article.className = "p-4";
     article.innerHTML = `
@@ -241,8 +348,8 @@ function renderizarFuncionariosRompimentos() {
         <div class="min-w-0">
           <h4 class="break-words font-black text-slate-900">${escapeHtml(nomeCompletoFuncionario(funcionario))}</h4>
           <p class="break-words text-xs font-bold text-slate-500">Obra: ${escapeHtml(funcionario.obra || "-")}</p>
-          <p class="mt-2 break-words text-xs text-slate-500"><strong>Referências:</strong> ${escapeHtml((funcionario.referencias || []).join(", ") || "-")}</p>
-          <p class="break-words text-xs text-slate-500"><strong>Idades:</strong> ${escapeHtml((funcionario.idades || []).map((idade) => `${idade} dias`).join(", ") || "-")}</p>
+          <div class="mt-3 flex flex-wrap gap-1">${chips(funcionario.referencias, "bg-slate-100 text-slate-600")}</div>
+          <div class="mt-1 flex flex-wrap gap-1">${chips((funcionario.idades || []).map((idade) => `${idade} dias`), "bg-red-50 text-red-700")}</div>
         </div>
         <div class="flex shrink-0 items-center gap-1">
           <button type="button" data-action="editar-funcionario" data-id="${funcionario.id}" class="h-11 w-11 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-700" aria-label="Editar funcionário">
@@ -256,6 +363,7 @@ function renderizarFuncionariosRompimentos() {
     `;
     el.funcionariosRompimentosLista.appendChild(article);
   });
+  renderizarPaginacao(el.paginacaoFuncionarios, pagina, "funcionarios");
 }
 
 async function salvarFuncionarioRompimento(event) {
@@ -314,7 +422,7 @@ function editarFuncionario(funcionario) {
   el.funcionarioFormTitulo.textContent = "Editar funcionário";
   el.btnSalvarFuncionario.textContent = "Atualizar funcionário";
   el.btnCancelarFuncionario.classList.remove("hidden");
-  el.funcionarioNome.focus();
+  abrirModal(el.modalFuncionario, el.funcionarioNome);
 }
 
 async function excluirFuncionario(funcionario) {
@@ -323,9 +431,9 @@ async function excluirFuncionario(funcionario) {
   if (funcionarioEmEdicaoId === funcionario.id) cancelarEdicaoFuncionario();
 }
 
-function cancelarEdicaoFuncionario() {
+function cancelarEdicaoFuncionario(fechar = true) {
   funcionarioEmEdicaoId = "";
-  el.funcionarioFormTitulo.textContent = "Cadastrar funcionário";
+  el.funcionarioFormTitulo.textContent = "Novo funcionário";
   el.btnSalvarFuncionario.textContent = "Cadastrar funcionário";
   el.btnCancelarFuncionario.classList.add("hidden");
   el.funcionarioNome.value = "";
@@ -334,6 +442,7 @@ function cancelarEdicaoFuncionario() {
   el.novaReferencia.value = "";
   renderizarReferencias();
   renderizarIdades();
+  if (fechar) fecharModal(el.modalFuncionario);
 }
 
 function nomeCompletoFuncionario(funcionario) {
@@ -361,16 +470,20 @@ function preencherClientes() {
 }
 
 function renderizarClientes() {
-  if (!clientes.length) {
-    el.clientesLista.innerHTML = '<p class="text-xs text-slate-400 font-bold">Nenhum cliente cadastrado.</p>';
+  const termo = normalizarBusca(el.buscaClientes.value);
+  const filtrados = clientes.filter((cliente) => normalizarBusca(cliente.nome).includes(termo));
+  const pagina = paginar(filtrados, "clientes");
+  if (!filtrados.length) {
+    el.clientesLista.innerHTML = vazio(termo ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado.");
+    renderizarPaginacao(el.paginacaoClientes, pagina, "clientes");
     return;
   }
 
   el.clientesLista.innerHTML = "";
-  clientes.forEach((cliente) => {
+  pagina.itens.forEach((cliente) => {
     const div = document.createElement("div");
     div.className =
-      "flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs font-bold text-slate-600";
+      "flex items-center gap-3 px-4 py-4 text-sm font-bold text-slate-700";
     div.innerHTML = `
       <i class="fa-solid fa-circle-check text-emerald-500"></i>
       <span class="flex-1">${escapeHtml(cliente.nome)}</span>
@@ -383,18 +496,27 @@ function renderizarClientes() {
     `;
     el.clientesLista.appendChild(div);
   });
+  renderizarPaginacao(el.paginacaoClientes, pagina, "clientes");
 }
 
 function renderizarObras() {
-  if (!obras.length) {
-    el.obrasLista.innerHTML = vazio("Nenhuma obra cadastrada.");
+  const ordenadas = [...obras].sort((a, b) => nomeCliente(a.clienteId).localeCompare(nomeCliente(b.clienteId), "pt-BR"));
+  const termo = normalizarBusca(el.buscaObras.value);
+  const filtradas = ordenadas.filter((obra) => normalizarBusca([
+    obra.nome,
+    obra.referencia,
+    obra.endereco,
+    nomeCliente(obra.clienteId),
+  ].join(" ")).includes(termo));
+  const pagina = paginar(filtradas, "obras");
+  if (!filtradas.length) {
+    el.obrasLista.innerHTML = vazio(termo ? "Nenhuma obra encontrada." : "Nenhuma obra cadastrada.");
+    renderizarPaginacao(el.paginacaoObras, pagina, "obras");
     return;
   }
 
-  const ordenadas = [...obras].sort((a, b) => nomeCliente(a.clienteId).localeCompare(nomeCliente(b.clienteId), "pt-BR"));
-
   el.obrasLista.innerHTML = "";
-  ordenadas.forEach((obra) => {
+  pagina.itens.forEach((obra) => {
     const div = document.createElement("article");
     div.className = "p-4";
     div.innerHTML = `
@@ -422,6 +544,7 @@ function renderizarObras() {
     `;
     el.obrasLista.appendChild(div);
   });
+  renderizarPaginacao(el.paginacaoObras, pagina, "obras");
 }
 
 async function salvarCliente(event) {
@@ -528,7 +651,7 @@ function editarCliente(cliente) {
   el.clienteFormTitulo.textContent = "Editar cliente";
   el.btnSalvarCliente.textContent = "Atualizar cliente";
   el.btnCancelarCliente.classList.remove("hidden");
-  el.clienteNome.focus();
+  abrirModal(el.modalCliente, el.clienteNome);
 }
 
 function editarObra(obra) {
@@ -542,7 +665,7 @@ function editarObra(obra) {
   el.obraFormTitulo.textContent = "Editar obra";
   el.btnSalvarObra.textContent = "Atualizar obra";
   el.btnCancelarObra.classList.remove("hidden");
-  el.obraNome.focus();
+  abrirModal(el.modalObra, el.obraNome);
 }
 
 async function excluirCliente(cliente) {
@@ -572,17 +695,18 @@ async function excluirObra(obra) {
   if (obraEmEdicaoId === obra.id) cancelarEdicaoObra();
 }
 
-function cancelarEdicaoCliente() {
+function cancelarEdicaoCliente(fechar = true) {
   clienteEmEdicaoId = "";
-  el.clienteFormTitulo.textContent = "Clientes";
+  el.clienteFormTitulo.textContent = "Novo cliente";
   el.btnSalvarCliente.textContent = "Cadastrar cliente";
   el.btnCancelarCliente.classList.add("hidden");
   el.clienteNome.value = "";
+  if (fechar) fecharModal(el.modalCliente);
 }
 
-function cancelarEdicaoObra() {
+function cancelarEdicaoObra(fechar = true) {
   obraEmEdicaoId = "";
-  el.obraFormTitulo.textContent = "Obras";
+  el.obraFormTitulo.textContent = "Nova obra";
   el.btnSalvarObra.textContent = "Cadastrar obra";
   el.btnCancelarObra.classList.add("hidden");
   el.obraCliente.value = "";
@@ -591,6 +715,7 @@ function cancelarEdicaoObra() {
   el.obraEndereco.value = "";
   el.obraContato.value = "";
   el.obraObservacoes.value = "";
+  if (fechar) fecharModal(el.modalObra);
 }
 
 function atualizarStatus(texto, corClasse) {
@@ -623,6 +748,46 @@ function normalizarTexto(valor) {
 
 function mesmoTexto(a, b) {
   return normalizarTexto(a).toLocaleLowerCase("pt-BR") === normalizarTexto(b).toLocaleLowerCase("pt-BR");
+}
+
+function normalizarBusca(valor) {
+  return normalizarTexto(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+}
+
+function paginar(lista, chave) {
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / ITENS_POR_PAGINA));
+  paginas[chave] = Math.min(Math.max(1, paginas[chave]), totalPaginas);
+  const inicio = (paginas[chave] - 1) * ITENS_POR_PAGINA;
+  return {
+    itens: lista.slice(inicio, inicio + ITENS_POR_PAGINA),
+    paginaAtual: paginas[chave],
+    totalPaginas,
+    totalItens: lista.length,
+  };
+}
+
+function renderizarPaginacao(container, pagina, chave) {
+  const desabilitarAnterior = pagina.paginaAtual <= 1;
+  const desabilitarProxima = pagina.paginaAtual >= pagina.totalPaginas;
+  container.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <span class="text-xs font-bold text-slate-400">${pagina.totalItens} registro(s)</span>
+      <div class="flex items-center gap-2">
+        <button type="button" data-page="${pagina.paginaAtual - 1}" ${desabilitarAnterior ? "disabled" : ""} class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40">Anterior</button>
+        <span class="whitespace-nowrap text-xs font-black text-slate-500">Página ${pagina.paginaAtual} de ${pagina.totalPaginas}</span>
+        <button type="button" data-page="${pagina.paginaAtual + 1}" ${desabilitarProxima ? "disabled" : ""} class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40">Próxima</button>
+      </div>
+    </div>
+  `;
+  container.dataset.paginationFor = chave;
+}
+
+function chips(valores = [], classes) {
+  if (!valores.length) return '<span class="text-xs text-slate-400">—</span>';
+  return valores.map((valor) => `<span class="rounded-full px-2 py-1 text-[10px] font-black ${classes}">${escapeHtml(valor)}</span>`).join("");
 }
 
 function vazio(texto) {
