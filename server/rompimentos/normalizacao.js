@@ -55,12 +55,19 @@ function agruparRompimentos(registros) {
         idade,
         cps: [],
         cpsBrutos: [],
+        detalhes: [],
       });
     }
 
     const grupo = grupos.get(chave);
     const bruto = String(registro.cp ?? "").trim();
     if (bruto) grupo.cpsBrutos.push(bruto);
+    grupo.detalhes.push({
+      obra: referencia,
+      cp: bruto,
+      idade,
+      fckEstimado: String(registro.fckEstimado || "").trim(),
+    });
     const principal = numeroPrincipalCp(bruto);
     if (principal !== null) grupo.cps.push(principal);
   }
@@ -74,6 +81,10 @@ function agruparRompimentos(registros) {
         idade: grupo.idade,
         cps: [...new Set(grupo.cps)].sort((a, b) => a - b),
         cpsBrutos: [...new Set(grupo.cpsBrutos)],
+        detalhes: [...new Map(grupo.detalhes.map((detalhe) => [
+          JSON.stringify([detalhe.obra, detalhe.cp, detalhe.idade, detalhe.fckEstimado]),
+          detalhe,
+        ])).values()],
         cpTexto: intervalos.length ? `CP ${textoIntervalos(intervalos)}` : "CP não informado",
       };
     })

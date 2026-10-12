@@ -110,7 +110,13 @@ async function prepararPagina(context) {
       body: JSON.stringify({
         success: true,
         datasComRompimentos: [data],
-        rompimentos: [{ data, referencia: "CSP", idade: 28, cpTexto: "CP 16 a 19" }],
+        rompimentos: [{
+          data,
+          referencia: "CSP",
+          idade: 28,
+          cpTexto: "CP 16 a 19",
+          detalhes: [{ obra: "CSP", cp: "398-5", idade: 28, fckEstimado: "Usi Beton - 20 MPa" }],
+        }],
       }),
     });
   });
@@ -204,13 +210,21 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.getByRole("button", { name: "Excluir funcionário" }).click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "remove" && acao.caminho.endsWith("/teste")));
     await page.locator("#btnNovoFuncionario").click();
+    assert.equal(await page.locator('input[name="funcionarioIdade"][value="1"]').isVisible(), true);
     await page.locator("#funcionarioNome").fill("João");
     await page.locator("#funcionarioSobrenome").fill("Souza");
     await page.locator("#funcionarioObra").fill("Laboratório");
     await page.locator('input[name="funcionarioReferencia"][value="CSP"]').check();
     await page.locator('input[name="funcionarioIdade"][value="7"]').check();
+    await page.locator("#novaIdade").fill("90");
+    await page.locator("#btnAdicionarIdade").click();
+    assert.equal(await page.locator('input[name="funcionarioIdade"][value="90"]').isChecked(), true);
     await page.locator("#btnSalvarFuncionario").click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/funcionariosRompimentos"));
+    assert.deepEqual(
+      await page.evaluate(() => window.__dbActions.find((acao) => acao.tipo === "push" && acao.caminho === "administracao/funcionariosRompimentos").valor.idades),
+      [7, 90],
+    );
 
     for (const largura of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });
@@ -223,7 +237,8 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       await page.setViewportSize({ width: largura, height: 900 });
       await page.goto(`${base}/pages/rompimentos.html`);
       await page.getByRole("button", { name: /Marcelo Silva/i }).click();
-      await page.getByText("CP 16 a 19").waitFor();
+      await page.getByText("398-5").waitFor();
+      await page.getByText("Usi Beton - 20 MPa").waitFor();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       assert.ok(overflow <= 1, `overflow horizontal em ${largura}px: ${overflow}px`);
     }

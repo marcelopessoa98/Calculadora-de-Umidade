@@ -215,19 +215,40 @@ function renderizarRompimentos(grupos) {
   });
 
   porReferencia.forEach((itens, referencia) => {
+    const detalhes = itens.flatMap((item) => {
+      if (Array.isArray(item.detalhes) && item.detalhes.length) return item.detalhes;
+      if (Array.isArray(item.cpsBrutos) && item.cpsBrutos.length) {
+        return item.cpsBrutos.map((cp) => ({ obra: referencia, cp, idade: item.idade, fckEstimado: "" }));
+      }
+      return [{ obra: referencia, cp: item.cpTexto || "CP não informado", idade: item.idade, fckEstimado: "" }];
+    });
     const article = document.createElement("article");
     article.className = "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm";
     article.innerHTML = `
       <header class="border-b border-slate-100 bg-slate-950 px-4 py-3 text-white">
         <h4 class="break-words text-lg font-black">${escapeHtml(referencia)}</h4>
       </header>
-      <div class="divide-y divide-slate-100">
-        ${itens.map((item) => `
-          <div class="p-4">
-            <p class="text-xs font-black uppercase tracking-widest text-red-600">${Number(item.idade)} dias</p>
-            <p class="mt-1 break-words text-xl font-black text-slate-900">${escapeHtml(item.cpTexto)}</p>
-          </div>
-        `).join("")}
+      <div class="overflow-x-auto">
+        <table class="min-w-[520px] w-full border-collapse text-left text-sm">
+          <thead class="bg-red-700 text-[10px] uppercase tracking-wide text-white">
+            <tr>
+              <th class="px-3 py-3 font-black">Obra</th>
+              <th class="px-3 py-3 font-black">CP</th>
+              <th class="px-3 py-3 font-black">Idade</th>
+              <th class="px-3 py-3 font-black">FCK estimado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            ${detalhes.map((detalhe) => `
+              <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-3 py-3 font-black text-slate-800">${escapeHtml(detalhe.obra || referencia)}</td>
+                <td class="px-3 py-3 font-black text-slate-900">${escapeHtml(detalhe.cp || "-")}</td>
+                <td class="px-3 py-3 font-black text-slate-800">${Number(detalhe.idade)} ${Number(detalhe.idade) === 1 ? "dia" : "dias"}</td>
+                <td class="px-3 py-3 font-bold text-slate-700">${escapeHtml(detalhe.fckEstimado || "-")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
       </div>
     `;
     el.rompimentosLista.appendChild(article);

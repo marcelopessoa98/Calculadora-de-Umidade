@@ -24,8 +24,8 @@ test("cria somente intervalos realmente contínuos", () => {
 
 test("agrupa por data, referência e idade sem misturar grupos", () => {
   const registros = [
-    { data: "2026-10-12", referencia: "CSP", cp: "16-5", idade: 28 },
-    { data: "2026-10-12", referencia: "CSP", cp: "16-6", idade: 28 },
+    { data: "2026-10-12", referencia: "CSP", cp: "16-5", idade: 28, fckEstimado: "20 MPa" },
+    { data: "2026-10-12", referencia: "CSP", cp: "16-6", idade: 28, fckEstimado: "20 MPa" },
     { data: "2026-10-12", referencia: "CSP", cp: "17-5", idade: 28 },
     { data: "2026-10-12", referencia: "CSP", cp: "34-5", idade: 7 },
     { data: "2026-10-13", referencia: "CSP", cp: "18-5", idade: 28 },
@@ -36,6 +36,12 @@ test("agrupa por data, referência e idade sem misturar grupos", () => {
   assert.equal(grupos.length, 4);
   assert.equal(grupos[1].cpTexto, "CP 16 a 17");
   assert.deepEqual(grupos[1].cpsBrutos, ["16-5", "16-6", "17-5"]);
+  assert.deepEqual(grupos[1].detalhes[0], {
+    obra: "CSP",
+    cp: "16-5",
+    idade: 28,
+    fckEstimado: "20 MPa",
+  });
 });
 
 test("filtra múltiplas referências e idades do funcionário", () => {

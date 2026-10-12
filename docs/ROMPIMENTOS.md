@@ -56,10 +56,15 @@ A chave usa a segunda-feira da semana. O cache é válido por 60 minutos. O lock
 2. localize **Funcionários dos rompimentos**;
 3. informe nome, sobrenome e obra;
 4. marque uma ou mais referências;
-5. marque uma ou mais idades;
-6. salve.
+5. marque uma ou mais idades (1, 3, 7, 14, 28, 56 e 63 dias ficam disponíveis inicialmente);
+6. se necessário, informe outra idade inteira positiva e clique em **Adicionar**;
+7. salve.
 
 Uma referência nova pode ser incluída no próprio formulário. Editar e excluir ficam disponíveis na lista abaixo do cadastro.
+
+## Dados apresentados
+
+A listagem preserva o resumo usado pelo sistema e também apresenta cada linha retornada pelo sistema externo com **Obra**, **CP**, **Idade** e **FCK estimado**. O CP original, incluindo seu sufixo, é mantido na visualização.
 
 ## Variáveis na Vercel
 

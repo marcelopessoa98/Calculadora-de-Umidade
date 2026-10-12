@@ -3,7 +3,7 @@ const ADMIN_ACCESS_KEY = "sgi_concrefuji_admin_autorizado";
 const DB_CLIENTES = "administracao/clientes";
 const DB_OBRAS = "administracao/obras";
 const DB_FUNCIONARIOS_ROMPIMENTOS = "administracao/funcionariosRompimentos";
-const IDADES_PADRAO = [3, 7, 14, 28, 56, 63];
+const IDADES_PADRAO = [1, 3, 7, 14, 28, 56, 63];
 const ITENS_POR_PAGINA = 10;
 
 let database = null;
@@ -17,6 +17,7 @@ let funcionariosRompimentos = [];
 let funcionariosRompimentosCarregados = false;
 let funcionarioEmEdicaoId = "";
 let referenciasDisponiveis = new Set(["CSP", "VSP", "GSF"]);
+let idadesDisponiveis = new Set(IDADES_PADRAO);
 const paginas = { clientes: 1, obras: 1, funcionarios: 1 };
 
 const el = {
@@ -66,6 +67,8 @@ const el = {
   novaReferencia: document.getElementById("novaReferencia"),
   btnAdicionarReferencia: document.getElementById("btnAdicionarReferencia"),
   idadesOpcoes: document.getElementById("idadesOpcoes"),
+  novaIdade: null,
+  btnAdicionarIdade: null,
   btnSalvarFuncionario: document.getElementById("btnSalvarFuncionario"),
   btnCancelarFuncionario: document.getElementById("btnCancelarFuncionario"),
   funcionariosRompimentosLista: document.getElementById("funcionariosRompimentosLista"),
@@ -117,6 +120,7 @@ function liberarAcesso() {
 }
 
 function registrarEventos() {
+  criarCampoNovaIdade();
   el.formCliente.addEventListener("submit", salvarCliente);
   el.formObra.addEventListener("submit", salvarObra);
   el.btnCancelarCliente.addEventListener("click", cancelarEdicaoCliente);
@@ -126,10 +130,17 @@ function registrarEventos() {
   el.formFuncionarioRompimento.addEventListener("submit", salvarFuncionarioRompimento);
   el.btnCancelarFuncionario.addEventListener("click", cancelarEdicaoFuncionario);
   el.btnAdicionarReferencia.addEventListener("click", adicionarReferencia);
+  el.btnAdicionarIdade.addEventListener("click", adicionarIdade);
   el.novaReferencia.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       adicionarReferencia();
+    }
+  });
+  el.novaIdade.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      adicionarIdade();
     }
   });
   el.funcionariosRompimentosLista.addEventListener("click", tratarCliqueFuncionario);
@@ -250,8 +261,12 @@ function iniciarFirebase() {
       funcionariosRompimentosCarregados = true;
       funcionariosRompimentos.forEach((funcionario) => {
         (funcionario.referencias || []).forEach((referencia) => referenciasDisponiveis.add(referencia));
+        (funcionario.idades || []).forEach((idade) => {
+          if (Number.isInteger(Number(idade)) && Number(idade) > 0) idadesDisponiveis.add(Number(idade));
+        });
       });
       renderizarReferencias(referenciasSelecionadas());
+      renderizarIdades(idadesSelecionadas());
       renderizarTudo();
     },
     tratarErroFirebase,
@@ -289,15 +304,27 @@ function renderizarReferencias(selecionadas = []) {
 function renderizarIdades(selecionadas = []) {
   const marcadas = new Set(selecionadas.map(Number));
   el.idadesOpcoes.innerHTML = "";
-  IDADES_PADRAO.forEach((idade) => {
+  [...idadesDisponiveis].sort((a, b) => a - b).forEach((idade) => {
     const label = document.createElement("label");
     label.className = "flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-black text-slate-700";
     label.innerHTML = `
       <input type="checkbox" name="funcionarioIdade" value="${idade}" class="h-5 w-5 accent-red-600" ${marcadas.has(idade) ? "checked" : ""} />
-      ${idade} dias
+      ${rotuloIdade(idade)}
     `;
     el.idadesOpcoes.appendChild(label);
   });
+}
+
+function criarCampoNovaIdade() {
+  const container = document.createElement("div");
+  container.className = "mt-2 flex gap-2";
+  container.innerHTML = `
+    <input id="novaIdade" type="number" inputmode="numeric" min="1" step="1" class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-red-500" placeholder="Outra idade em dias" />
+    <button id="btnAdicionarIdade" type="button" class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 text-xs font-black uppercase text-white">Adicionar</button>
+  `;
+  el.idadesOpcoes.insertAdjacentElement("afterend", container);
+  el.novaIdade = container.querySelector("#novaIdade");
+  el.btnAdicionarIdade = container.querySelector("#btnAdicionarIdade");
 }
 
 function adicionarReferencia() {
@@ -308,6 +335,16 @@ function adicionarReferencia() {
   selecionadas.push(referencia);
   renderizarReferencias(selecionadas);
   el.novaReferencia.value = "";
+}
+
+function adicionarIdade() {
+  const idade = Number(el.novaIdade.value);
+  if (!Number.isInteger(idade) || idade <= 0) return alert("Informe uma idade válida em dias.");
+  const selecionadas = idadesSelecionadas();
+  idadesDisponiveis.add(idade);
+  selecionadas.push(idade);
+  renderizarIdades(selecionadas);
+  el.novaIdade.value = "";
 }
 
 function referenciasSelecionadas() {
@@ -349,7 +386,7 @@ function renderizarFuncionariosRompimentos() {
           <h4 class="break-words font-black text-slate-900">${escapeHtml(nomeCompletoFuncionario(funcionario))}</h4>
           <p class="break-words text-xs font-bold text-slate-500">Obra: ${escapeHtml(funcionario.obra || "-")}</p>
           <div class="mt-3 flex flex-wrap gap-1">${chips(funcionario.referencias, "bg-slate-100 text-slate-600")}</div>
-          <div class="mt-1 flex flex-wrap gap-1">${chips((funcionario.idades || []).map((idade) => `${idade} dias`), "bg-red-50 text-red-700")}</div>
+          <div class="mt-1 flex flex-wrap gap-1">${chips((funcionario.idades || []).map(rotuloIdade), "bg-red-50 text-red-700")}</div>
         </div>
         <div class="flex shrink-0 items-center gap-1">
           <button type="button" data-action="editar-funcionario" data-id="${funcionario.id}" class="h-11 w-11 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-700" aria-label="Editar funcionário">
@@ -417,6 +454,7 @@ function editarFuncionario(funcionario) {
   el.funcionarioSobrenome.value = funcionario.sobrenome || "";
   el.funcionarioObra.value = funcionario.obra || "";
   (funcionario.referencias || []).forEach((referencia) => referenciasDisponiveis.add(referencia));
+  (funcionario.idades || []).forEach((idade) => idadesDisponiveis.add(Number(idade)));
   renderizarReferencias(funcionario.referencias || []);
   renderizarIdades(funcionario.idades || []);
   el.funcionarioFormTitulo.textContent = "Editar funcionário";
@@ -440,6 +478,7 @@ function cancelarEdicaoFuncionario(fechar = true) {
   el.funcionarioSobrenome.value = "";
   el.funcionarioObra.value = "";
   el.novaReferencia.value = "";
+  el.novaIdade.value = "";
   renderizarReferencias();
   renderizarIdades();
   if (fechar) fecharModal(el.modalFuncionario);
@@ -755,6 +794,11 @@ function normalizarBusca(valor) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pt-BR");
+}
+
+function rotuloIdade(idade) {
+  const numero = Number(idade);
+  return `${numero} ${numero === 1 ? "dia" : "dias"}`;
 }
 
 function paginar(lista, chave) {
