@@ -1,7 +1,8 @@
 const DB_FUNCIONARIOS = "administracao/funcionariosRompimentos";
 const MENSAGEM_CARREGANDO = "Carregando rompimentos...";
 const MENSAGEM_VAZIO = "Nenhum rompimento para esta data.";
-const MENSAGEM_ERRO = "Não foi possível carregar os rompimentos. Tente novamente.";
+const MENSAGEM_ERRO =
+  "Não foi possível carregar os rompimentos. Tente novamente.";
 
 let database = null;
 let funcionarios = [];
@@ -23,7 +24,9 @@ const el = {
   btnTrocarFuncionario: document.getElementById("btnTrocarFuncionario"),
   funcionarioNome: document.getElementById("funcionarioNome"),
   funcionarioObra: document.getElementById("funcionarioObra"),
-  avisoRompimentosAtrasados: document.getElementById("avisoRompimentosAtrasados"),
+  avisoRompimentosAtrasados: document.getElementById(
+    "avisoRompimentosAtrasados",
+  ),
   avisoRompimentosTexto: document.getElementById("avisoRompimentosTexto"),
   btnFecharAvisoAtrasos: document.getElementById("btnFecharAvisoAtrasos"),
   btnAlternarNotificacoes: document.getElementById("btnAlternarNotificacoes"),
@@ -55,9 +58,13 @@ function registrarEventos() {
 
   el.btnTrocarFuncionario.addEventListener("click", voltarParaFuncionarios);
   el.btnFecharAvisoAtrasos.addEventListener("click", fecharAvisoAtrasos);
-  el.btnAlternarNotificacoes.addEventListener("click", alternarCentralNotificacoes);
+  el.btnAlternarNotificacoes.addEventListener(
+    "click",
+    alternarCentralNotificacoes,
+  );
   el.painelNotificacoes.addEventListener("click", (event) => {
-    if (event.target.closest("[data-recarregar-notificacoes]")) carregarNotificacoesAtrasadas();
+    if (event.target.closest("[data-recarregar-notificacoes]"))
+      carregarNotificacoesAtrasadas();
   });
   el.mesAnterior.addEventListener("click", () => alterarMes(-1));
   el.proximoMes.addEventListener("click", () => alterarMes(1));
@@ -83,7 +90,9 @@ function carregarFuncionarios() {
       funcionarios = Object.entries(snapshot.val() || {})
         .map(([id, valor]) => ({ id, ...valor }))
         .filter((funcionario) => funcionario.ativo !== false)
-        .sort((a, b) => nomeCompleto(a).localeCompare(nomeCompleto(b), "pt-BR"));
+        .sort((a, b) =>
+          nomeCompleto(a).localeCompare(nomeCompleto(b), "pt-BR"),
+        );
       renderizarFuncionarios();
     },
     () => renderizarMensagemFuncionarios(MENSAGEM_ERRO),
@@ -101,7 +110,8 @@ function renderizarFuncionarios() {
     const botao = document.createElement("button");
     botao.type = "button";
     botao.dataset.funcionarioId = funcionario.id;
-    botao.className = "w-full min-w-0 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.98]";
+    botao.className =
+      "w-full min-w-0 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.98]";
     botao.innerHTML = `
       <div class="flex min-w-0 items-center gap-3">
         <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
@@ -124,7 +134,9 @@ function renderizarMensagemFuncionarios(mensagem) {
 }
 
 function selecionarFuncionario(id) {
-  funcionarioSelecionado = funcionarios.find((funcionario) => funcionario.id === id);
+  funcionarioSelecionado = funcionarios.find(
+    (funcionario) => funcionario.id === id,
+  );
   if (!funcionarioSelecionado) return;
 
   const hoje = dataIsoParaLocal(hojeSaoPauloIso());
@@ -155,10 +167,15 @@ function voltarParaFuncionarios() {
 }
 
 function alterarMes(delta) {
-  mesExibido = new Date(mesExibido.getFullYear(), mesExibido.getMonth() + delta, 1);
+  mesExibido = new Date(
+    mesExibido.getFullYear(),
+    mesExibido.getMonth() + delta,
+    1,
+  );
   const hoje = dataIsoParaLocal(hojeSaoPauloIso());
   dataSelecionada =
-    hoje.getFullYear() === mesExibido.getFullYear() && hoje.getMonth() === mesExibido.getMonth()
+    hoje.getFullYear() === mesExibido.getFullYear() &&
+    hoje.getMonth() === mesExibido.getMonth()
       ? dataLocalIso(hoje)
       : dataLocalIso(mesExibido);
   datasComRompimentos = new Set();
@@ -167,10 +184,21 @@ function alterarMes(delta) {
 }
 
 function renderizarCalendario() {
-  el.tituloMes.textContent = mesExibido.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  el.tituloMes.textContent = mesExibido.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
   el.calendario.innerHTML = "";
-  const primeiroDiaSemana = new Date(mesExibido.getFullYear(), mesExibido.getMonth(), 1).getDay();
-  const totalDias = new Date(mesExibido.getFullYear(), mesExibido.getMonth() + 1, 0).getDate();
+  const primeiroDiaSemana = new Date(
+    mesExibido.getFullYear(),
+    mesExibido.getMonth(),
+    1,
+  ).getDay();
+  const totalDias = new Date(
+    mesExibido.getFullYear(),
+    mesExibido.getMonth() + 1,
+    0,
+  ).getDate();
 
   for (let vazio = 0; vazio < primeiroDiaSemana; vazio += 1) {
     const espaco = document.createElement("span");
@@ -187,10 +215,15 @@ function renderizarCalendario() {
     botao.type = "button";
     botao.dataset.data = iso;
     botao.className = `calendar-day relative flex min-w-0 items-center justify-center rounded-xl text-sm font-black transition active:scale-95 ${
-      selecionado ? "bg-red-600 text-white shadow-md" : "bg-slate-50 text-slate-700"
+      selecionado
+        ? "bg-red-600 text-white shadow-md"
+        : "bg-slate-50 text-slate-700"
     }`;
     botao.setAttribute("role", "gridcell");
-    botao.setAttribute("aria-label", data.toLocaleDateString("pt-BR", { dateStyle: "long" }));
+    botao.setAttribute(
+      "aria-label",
+      data.toLocaleDateString("pt-BR", { dateStyle: "long" }),
+    );
     botao.setAttribute("aria-selected", selecionado ? "true" : "false");
     botao.innerHTML = `${dia}${temRompimento ? `<span class="absolute bottom-1 h-1.5 w-1.5 rounded-full ${selecionado ? "bg-white" : "bg-red-500"}"></span>` : ""}`;
     el.calendario.appendChild(botao);
@@ -208,11 +241,19 @@ async function carregarRompimentos() {
 
   try {
     const resultado = await obterRompimentosSemana(funcionarioId, dataConsulta);
-    if (idRequisicao !== requisicaoAtual || funcionarioSelecionado?.id !== funcionarioId) return;
+    if (
+      idRequisicao !== requisicaoAtual ||
+      funcionarioSelecionado?.id !== funcionarioId
+    )
+      return;
 
     datasComRompimentos = new Set(resultado.datasComRompimentos || []);
     renderizarCalendario();
-    renderizarRompimentos((resultado.rompimentos || []).filter((grupo) => grupo.data === dataConsulta));
+    renderizarRompimentos(
+      (resultado.rompimentos || []).filter(
+        (grupo) => grupo.data === dataConsulta,
+      ),
+    );
   } catch {
     if (idRequisicao === requisicaoAtual) mostrarEstado(MENSAGEM_ERRO);
   }
@@ -222,10 +263,14 @@ async function obterRompimentosSemana(funcionarioId, dataConsulta) {
   const inicioSemana = inicioSemanaLocalIso(dataConsulta);
   const chaveCache = `${funcionarioId}:${inicioSemana}`;
   if (cacheSemanas.has(chaveCache)) return cacheSemanas.get(chaveCache);
-  if (requisicoesSemanas.has(chaveCache)) return requisicoesSemanas.get(chaveCache);
+  if (requisicoesSemanas.has(chaveCache))
+    return requisicoesSemanas.get(chaveCache);
 
   const requisicao = (async () => {
-    const parametros = new URLSearchParams({ funcionarioId, data: dataConsulta });
+    const parametros = new URLSearchParams({
+      funcionarioId,
+      data: dataConsulta,
+    });
     const resposta = await fetch(`/api/rompimentos?${parametros.toString()}`, {
       headers: { Accept: "application/json" },
     });
@@ -251,7 +296,8 @@ function prepararCentralNotificacoes() {
   el.contadorNotificacoes.classList.add("hidden");
   el.contadorNotificacoes.textContent = "";
   el.resumoNotificacoes.textContent = "Verificando pendências...";
-  el.painelNotificacoes.innerHTML = '<p class="text-sm font-bold text-slate-500">Verificando pendências...</p>';
+  el.painelNotificacoes.innerHTML =
+    '<p class="text-sm font-bold text-slate-500">Verificando pendências...</p>';
   definirCentralAberta(false);
 }
 
@@ -264,7 +310,8 @@ async function carregarNotificacoesAtrasadas() {
   const fim = adicionarDiasIso(hoje, -1);
 
   el.resumoNotificacoes.textContent = "Verificando pendências...";
-  el.painelNotificacoes.innerHTML = '<p class="text-sm font-bold text-slate-500">Verificando pendências...</p>';
+  el.painelNotificacoes.innerHTML =
+    '<p class="text-sm font-bold text-slate-500">Verificando pendências...</p>';
 
   if (fim < inicio) {
     renderizarNotificacoesAtrasadas([], false, funcionarioId, hoje);
@@ -279,7 +326,10 @@ async function carregarNotificacoesAtrasadas() {
   });
   const resultados = await executarComLimite(semanas, 2, async (semana) => {
     try {
-      return { sucesso: true, resultado: await obterRompimentosSemana(funcionarioId, semana) };
+      return {
+        sucesso: true,
+        resultado: await obterRompimentosSemana(funcionarioId, semana),
+      };
     } catch {
       return { sucesso: false, resultado: null };
     }
@@ -288,7 +338,8 @@ async function carregarNotificacoesAtrasadas() {
   if (
     idRequisicao !== requisicaoNotificacoesAtual ||
     funcionarioSelecionado?.id !== funcionarioId
-  ) return;
+  )
+    return;
 
   const datas = new Set();
   resultados.forEach(({ sucesso, resultado }) => {
@@ -298,10 +349,20 @@ async function carregarNotificacoesAtrasadas() {
     });
   });
   const houveFalha = resultados.some((item) => !item.sucesso);
-  renderizarNotificacoesAtrasadas([...datas].sort(), houveFalha, funcionarioId, hoje);
+  renderizarNotificacoesAtrasadas(
+    [...datas].sort(),
+    houveFalha,
+    funcionarioId,
+    hoje,
+  );
 }
 
-function renderizarNotificacoesAtrasadas(datas, houveFalha, funcionarioId, hoje) {
+function renderizarNotificacoesAtrasadas(
+  datas,
+  houveFalha,
+  funcionarioId,
+  hoje,
+) {
   const mensagem = datas.length ? mensagemAvisoAtrasos(datas) : "";
   chaveAvisoAtual = `${funcionarioId}:${hoje}:${datas.join(",")}`;
 
@@ -310,7 +371,9 @@ function renderizarNotificacoesAtrasadas(datas, houveFalha, funcionarioId, hoje)
   el.contadorNotificacoes.classList.toggle("hidden", !datas.length);
   el.resumoNotificacoes.textContent = datas.length
     ? `${datas.length} ${datas.length === 1 ? "data pendente" : "datas pendentes"}`
-    : houveFalha ? MENSAGEM_ERRO : "Nenhuma pendência anterior encontrada.";
+    : houveFalha
+      ? MENSAGEM_ERRO
+      : "Nenhuma pendência anterior encontrada.";
 
   const blocos = [];
   if (datas.length) {
@@ -320,7 +383,9 @@ function renderizarNotificacoesAtrasadas(datas, houveFalha, funcionarioId, hoje)
       </article>
     `);
   } else if (!houveFalha) {
-    blocos.push('<p class="text-sm font-bold text-slate-500">Nenhuma notificação pendente.</p>');
+    blocos.push(
+      '<p class="text-sm font-bold text-slate-500">Nenhuma notificação pendente.</p>',
+    );
   }
   if (houveFalha) {
     blocos.push(`
@@ -340,10 +405,11 @@ function renderizarNotificacoesAtrasadas(datas, houveFalha, funcionarioId, hoje)
 
 function mensagemAvisoAtrasos(datas) {
   const datasFormatadas = datas.map(formatarDataIso);
-  const lista = datasFormatadas.length > 1
-    ? `${datasFormatadas.slice(0, -1).join(", ")} e ${datasFormatadas.at(-1)}`
-    : datasFormatadas[0];
-  return `Você tem rompimentos em atraso ${datas.length === 1 ? "do dia" : "dos dias"} ${lista}. Favor realizar o rompimento. Caso já tenha feito, favor desconsiderar este aviso.`;
+  const lista =
+    datasFormatadas.length > 1
+      ? `${datasFormatadas.slice(0, -1).join(", ")} e ${datasFormatadas.at(-1)}`
+      : datasFormatadas[0];
+  return `Você tem rompimentos em atraso ${datas.length === 1 ? "do dia" : "dos dias"} ${lista}. Favor realizar o rompimento. Caso já tenha feito, desconsiderar este aviso.`;
 }
 
 function fecharAvisoAtrasos() {
@@ -359,7 +425,10 @@ function alternarCentralNotificacoes() {
 function definirCentralAberta(aberta) {
   el.painelNotificacoes.hidden = !aberta;
   el.painelNotificacoes.classList.toggle("hidden", !aberta);
-  el.btnAlternarNotificacoes.setAttribute("aria-expanded", aberta ? "true" : "false");
+  el.btnAlternarNotificacoes.setAttribute(
+    "aria-expanded",
+    aberta ? "true" : "false",
+  );
   el.iconeNotificacoes.classList.toggle("rotate-180", aberta);
 }
 
@@ -373,20 +442,35 @@ function renderizarRompimentos(grupos) {
   el.rompimentosLista.innerHTML = "";
   const porReferencia = new Map();
   grupos.forEach((grupo) => {
-    if (!porReferencia.has(grupo.referencia)) porReferencia.set(grupo.referencia, []);
+    if (!porReferencia.has(grupo.referencia))
+      porReferencia.set(grupo.referencia, []);
     porReferencia.get(grupo.referencia).push(grupo);
   });
 
   porReferencia.forEach((itens, referencia) => {
     const detalhes = itens.flatMap((item) => {
-      if (Array.isArray(item.detalhes) && item.detalhes.length) return item.detalhes;
+      if (Array.isArray(item.detalhes) && item.detalhes.length)
+        return item.detalhes;
       if (Array.isArray(item.cpsBrutos) && item.cpsBrutos.length) {
-        return item.cpsBrutos.map((cp) => ({ obra: referencia, cp, idade: item.idade, fckEstimado: "" }));
+        return item.cpsBrutos.map((cp) => ({
+          obra: referencia,
+          cp,
+          idade: item.idade,
+          fckEstimado: "",
+        }));
       }
-      return [{ obra: referencia, cp: item.cpTexto || "CP não informado", idade: item.idade, fckEstimado: "" }];
+      return [
+        {
+          obra: referencia,
+          cp: item.cpTexto || "CP não informado",
+          idade: item.idade,
+          fckEstimado: "",
+        },
+      ];
     });
     const article = document.createElement("article");
-    article.className = "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm";
+    article.className =
+      "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm";
     article.innerHTML = `
       <header class="border-b border-slate-100 bg-slate-950 px-4 py-3 text-white">
         <h4 class="break-words text-lg font-black">${escapeHtml(referencia)}</h4>
@@ -402,14 +486,18 @@ function renderizarRompimentos(grupos) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200">
-            ${detalhes.map((detalhe) => `
+            ${detalhes
+              .map(
+                (detalhe) => `
               <tr class="odd:bg-white even:bg-slate-50">
                 <td class="px-3 py-3 font-black text-slate-800">${escapeHtml(detalhe.obra || referencia)}</td>
                 <td class="px-3 py-3 font-black text-slate-900">${escapeHtml(detalhe.cp || "-")}</td>
                 <td class="px-3 py-3 font-black text-slate-800">${Number(detalhe.idade)} ${Number(detalhe.idade) === 1 ? "dia" : "dias"}</td>
                 <td class="px-3 py-3 font-bold text-slate-700">${escapeHtml(detalhe.fckEstimado || "-")}</td>
               </tr>
-            `).join("")}
+            `,
+              )
+              .join("")}
           </tbody>
         </table>
       </div>
@@ -431,7 +519,9 @@ function esconderEstado() {
 
 function atualizarTituloData() {
   const data = dataIsoParaLocal(dataSelecionada);
-  el.diaSemana.textContent = data.toLocaleDateString("pt-BR", { weekday: "long" });
+  el.diaSemana.textContent = data.toLocaleDateString("pt-BR", {
+    weekday: "long",
+  });
   el.dataSelecionada.textContent = data.toLocaleDateString("pt-BR");
 }
 
@@ -466,7 +556,9 @@ function hojeSaoPauloIso() {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(new Date());
-  const valores = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+  const valores = Object.fromEntries(
+    partes.map((parte) => [parte.type, parte.value]),
+  );
   return `${valores.year}-${valores.month}-${valores.day}`;
 }
 
@@ -490,13 +582,16 @@ function iniciosSemanasNoIntervalo(inicio, fim) {
 async function executarComLimite(itens, limite, tarefa) {
   const resultados = new Array(itens.length);
   let proximo = 0;
-  const trabalhadores = Array.from({ length: Math.min(limite, itens.length) }, async () => {
-    while (proximo < itens.length) {
-      const indice = proximo;
-      proximo += 1;
-      resultados[indice] = await tarefa(itens[indice]);
-    }
-  });
+  const trabalhadores = Array.from(
+    { length: Math.min(limite, itens.length) },
+    async () => {
+      while (proximo < itens.length) {
+        const indice = proximo;
+        proximo += 1;
+        resultados[indice] = await tarefa(itens[indice]);
+      }
+    },
+  );
   await Promise.all(trabalhadores);
   return resultados;
 }
