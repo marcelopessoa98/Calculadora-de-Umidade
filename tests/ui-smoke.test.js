@@ -182,7 +182,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.getByRole("button", { name: "Excluir cliente" }).first().click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "update" && acao.caminho === ""));
 
-    await page.locator('[data-admin-view="obras"]:visible').click();
+    await page.locator('[data-admin-view="obras"]:visible').first().click();
     assert.equal(await page.locator("#obrasLista > *").count(), 10);
     await page.getByRole("button", { name: "Editar obra" }).first().click();
     await page.locator("#obraNome").fill("Obra atualizada");
@@ -199,7 +199,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.getByRole("button", { name: "Excluir obra" }).first().click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "remove" && acao.caminho.startsWith("administracao/obras/")));
 
-    await page.locator('[data-admin-view="funcionarios"]:visible').click();
+    await page.locator('[data-admin-view="funcionarios"]:visible').first().click();
     await page.getByRole("button", { name: "Editar funcionário" }).click();
     assert.equal(await page.locator("#formFuncionarioRompimento").isVisible(), true);
     assert.equal(await page.locator("#funcionarioNome").inputValue(), "Marcelo");
@@ -239,6 +239,13 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       await page.getByRole("button", { name: /Marcelo Silva/i }).click();
       await page.getByText("398-5").waitFor();
       await page.getByText("Usi Beton - 20 MPa").waitFor();
+      await page.locator("#avisoRompimentosAtrasados").waitFor({ state: "visible" });
+      assert.match(await page.locator("#avisoRompimentosTexto").textContent(), /Caso já tenha feito, favor desconsiderar este aviso/);
+      await page.locator("#btnFecharAvisoAtrasos").click();
+      assert.equal(await page.locator("#avisoRompimentosAtrasados").isHidden(), true);
+      await page.locator("#btnAlternarNotificacoes").click();
+      assert.equal(await page.locator("#painelNotificacoes").isVisible(), true);
+      assert.match(await page.locator("#painelNotificacoes").textContent(), /rompimentos em atraso/i);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       assert.ok(overflow <= 1, `overflow horizontal em ${largura}px: ${overflow}px`);
     }

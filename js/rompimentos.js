@@ -10,7 +10,11 @@ let mesExibido = inicioDoMes(new Date());
 let dataSelecionada = dataLocalIso(new Date());
 let datasComRompimentos = new Set();
 let requisicaoAtual = 0;
+let requisicaoNotificacoesAtual = 0;
+let chaveAvisoAtual = "";
 const cacheSemanas = new Map();
+const requisicoesSemanas = new Map();
+const avisosFechados = new Set();
 
 const el = {
   selecaoFuncionario: document.getElementById("selecaoFuncionario"),
@@ -19,6 +23,14 @@ const el = {
   btnTrocarFuncionario: document.getElementById("btnTrocarFuncionario"),
   funcionarioNome: document.getElementById("funcionarioNome"),
   funcionarioObra: document.getElementById("funcionarioObra"),
+  avisoRompimentosAtrasados: document.getElementById("avisoRompimentosAtrasados"),
+  avisoRompimentosTexto: document.getElementById("avisoRompimentosTexto"),
+  btnFecharAvisoAtrasos: document.getElementById("btnFecharAvisoAtrasos"),
+  btnAlternarNotificacoes: document.getElementById("btnAlternarNotificacoes"),
+  contadorNotificacoes: document.getElementById("contadorNotificacoes"),
+  resumoNotificacoes: document.getElementById("resumoNotificacoes"),
+  painelNotificacoes: document.getElementById("painelNotificacoes"),
+  iconeNotificacoes: document.getElementById("iconeNotificacoes"),
   mesAnterior: document.getElementById("mesAnterior"),
   proximoMes: document.getElementById("proximoMes"),
   tituloMes: document.getElementById("tituloMes"),
@@ -42,6 +54,11 @@ function registrarEventos() {
   });
 
   el.btnTrocarFuncionario.addEventListener("click", voltarParaFuncionarios);
+  el.btnFecharAvisoAtrasos.addEventListener("click", fecharAvisoAtrasos);
+  el.btnAlternarNotificacoes.addEventListener("click", alternarCentralNotificacoes);
+  el.painelNotificacoes.addEventListener("click", (event) => {
+    if (event.target.closest("[data-recarregar-notificacoes]")) carregarNotificacoesAtrasadas();
+  });
   el.mesAnterior.addEventListener("click", () => alterarMes(-1));
   el.proximoMes.addEventListener("click", () => alterarMes(1));
   el.calendario.addEventListener("click", (event) => {
@@ -110,7 +127,7 @@ function selecionarFuncionario(id) {
   funcionarioSelecionado = funcionarios.find((funcionario) => funcionario.id === id);
   if (!funcionarioSelecionado) return;
 
-  const hoje = new Date();
+  const hoje = dataIsoParaLocal(hojeSaoPauloIso());
   mesExibido = inicioDoMes(hoje);
   dataSelecionada = dataLocalIso(hoje);
   datasComRompimentos = new Set();
@@ -118,14 +135,20 @@ function selecionarFuncionario(id) {
   el.funcionarioObra.textContent = `Obra: ${funcionarioSelecionado.obra || "Não informada"}`;
   el.selecaoFuncionario.classList.add("hidden");
   el.painelFuncionario.classList.remove("hidden");
+  prepararCentralNotificacoes();
   renderizarCalendario();
   carregarRompimentos();
+  carregarNotificacoesAtrasadas();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function voltarParaFuncionarios() {
   requisicaoAtual += 1;
+  requisicaoNotificacoesAtual += 1;
   funcionarioSelecionado = null;
+  chaveAvisoAtual = "";
+  el.avisoRompimentosAtrasados.hidden = true;
+  el.avisoRompimentosAtrasados.classList.add("hidden");
   el.painelFuncionario.classList.add("hidden");
   el.selecaoFuncionario.classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -133,7 +156,7 @@ function voltarParaFuncionarios() {
 
 function alterarMes(delta) {
   mesExibido = new Date(mesExibido.getFullYear(), mesExibido.getMonth() + delta, 1);
-  const hoje = new Date();
+  const hoje = dataIsoParaLocal(hojeSaoPauloIso());
   dataSelecionada =
     hoje.getFullYear() === mesExibido.getFullYear() && hoje.getMonth() === mesExibido.getMonth()
       ? dataLocalIso(hoje)
@@ -179,35 +202,165 @@ function renderizarCalendario() {
 async function carregarRompimentos() {
   if (!funcionarioSelecionado) return;
   const idRequisicao = ++requisicaoAtual;
-  const chaveCache = `${funcionarioSelecionado.id}:${inicioSemanaLocalIso(dataSelecionada)}`;
-  const resultadoEmCache = cacheSemanas.get(chaveCache);
-  if (resultadoEmCache) {
-    datasComRompimentos = new Set(resultadoEmCache.datasComRompimentos || []);
-    renderizarCalendario();
-    renderizarRompimentos((resultadoEmCache.rompimentos || []).filter((grupo) => grupo.data === dataSelecionada));
-    return;
-  }
+  const funcionarioId = funcionarioSelecionado.id;
+  const dataConsulta = dataSelecionada;
   mostrarEstado(MENSAGEM_CARREGANDO);
 
   try {
-    const parametros = new URLSearchParams({
-      funcionarioId: funcionarioSelecionado.id,
-      data: dataSelecionada,
-    });
+    const resultado = await obterRompimentosSemana(funcionarioId, dataConsulta);
+    if (idRequisicao !== requisicaoAtual || funcionarioSelecionado?.id !== funcionarioId) return;
+
+    datasComRompimentos = new Set(resultado.datasComRompimentos || []);
+    renderizarCalendario();
+    renderizarRompimentos((resultado.rompimentos || []).filter((grupo) => grupo.data === dataConsulta));
+  } catch {
+    if (idRequisicao === requisicaoAtual) mostrarEstado(MENSAGEM_ERRO);
+  }
+}
+
+async function obterRompimentosSemana(funcionarioId, dataConsulta) {
+  const inicioSemana = inicioSemanaLocalIso(dataConsulta);
+  const chaveCache = `${funcionarioId}:${inicioSemana}`;
+  if (cacheSemanas.has(chaveCache)) return cacheSemanas.get(chaveCache);
+  if (requisicoesSemanas.has(chaveCache)) return requisicoesSemanas.get(chaveCache);
+
+  const requisicao = (async () => {
+    const parametros = new URLSearchParams({ funcionarioId, data: dataConsulta });
     const resposta = await fetch(`/api/rompimentos?${parametros.toString()}`, {
       headers: { Accept: "application/json" },
     });
     const resultado = await resposta.json().catch(() => null);
     if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
-    if (idRequisicao !== requisicaoAtual) return;
-
     cacheSemanas.set(chaveCache, resultado);
-    datasComRompimentos = new Set(resultado.datasComRompimentos || []);
-    renderizarCalendario();
-    renderizarRompimentos((resultado.rompimentos || []).filter((grupo) => grupo.data === dataSelecionada));
-  } catch {
-    if (idRequisicao === requisicaoAtual) mostrarEstado(MENSAGEM_ERRO);
+    return resultado;
+  })();
+
+  requisicoesSemanas.set(chaveCache, requisicao);
+  try {
+    return await requisicao;
+  } finally {
+    requisicoesSemanas.delete(chaveCache);
   }
+}
+
+function prepararCentralNotificacoes() {
+  chaveAvisoAtual = "";
+  el.avisoRompimentosAtrasados.hidden = true;
+  el.avisoRompimentosAtrasados.classList.add("hidden");
+  el.contadorNotificacoes.hidden = true;
+  el.contadorNotificacoes.classList.add("hidden");
+  el.contadorNotificacoes.textContent = "";
+  el.resumoNotificacoes.textContent = "Verificando pendências...";
+  el.painelNotificacoes.innerHTML = '<p class="text-sm font-bold text-slate-500">Verificando pendências...</p>';
+  definirCentralAberta(false);
+}
+
+async function carregarNotificacoesAtrasadas() {
+  if (!funcionarioSelecionado) return;
+  const idRequisicao = ++requisicaoNotificacoesAtual;
+  const funcionarioId = funcionarioSelecionado.id;
+  const hoje = hojeSaoPauloIso();
+  const inicio = `${hoje.slice(0, 8)}01`;
+  const fim = adicionarDiasIso(hoje, -1);
+
+  el.resumoNotificacoes.textContent = "Verificando pendências...";
+  el.painelNotificacoes.innerHTML = '<p class="text-sm font-bold text-slate-500">Verificando pendências...</p>';
+
+  if (fim < inicio) {
+    renderizarNotificacoesAtrasadas([], false, funcionarioId, hoje);
+    return;
+  }
+
+  const semanaAtual = inicioSemanaLocalIso(hoje);
+  const semanas = iniciosSemanasNoIntervalo(inicio, fim).sort((a, b) => {
+    if (a === semanaAtual) return -1;
+    if (b === semanaAtual) return 1;
+    return a.localeCompare(b);
+  });
+  const resultados = await executarComLimite(semanas, 2, async (semana) => {
+    try {
+      return { sucesso: true, resultado: await obterRompimentosSemana(funcionarioId, semana) };
+    } catch {
+      return { sucesso: false, resultado: null };
+    }
+  });
+
+  if (
+    idRequisicao !== requisicaoNotificacoesAtual ||
+    funcionarioSelecionado?.id !== funcionarioId
+  ) return;
+
+  const datas = new Set();
+  resultados.forEach(({ sucesso, resultado }) => {
+    if (!sucesso) return;
+    (resultado.rompimentos || []).forEach((grupo) => {
+      if (grupo.data >= inicio && grupo.data <= fim) datas.add(grupo.data);
+    });
+  });
+  const houveFalha = resultados.some((item) => !item.sucesso);
+  renderizarNotificacoesAtrasadas([...datas].sort(), houveFalha, funcionarioId, hoje);
+}
+
+function renderizarNotificacoesAtrasadas(datas, houveFalha, funcionarioId, hoje) {
+  const mensagem = datas.length ? mensagemAvisoAtrasos(datas) : "";
+  chaveAvisoAtual = `${funcionarioId}:${hoje}:${datas.join(",")}`;
+
+  el.contadorNotificacoes.textContent = String(datas.length);
+  el.contadorNotificacoes.hidden = !datas.length;
+  el.contadorNotificacoes.classList.toggle("hidden", !datas.length);
+  el.resumoNotificacoes.textContent = datas.length
+    ? `${datas.length} ${datas.length === 1 ? "data pendente" : "datas pendentes"}`
+    : houveFalha ? MENSAGEM_ERRO : "Nenhuma pendência anterior encontrada.";
+
+  const blocos = [];
+  if (datas.length) {
+    blocos.push(`
+      <article class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
+        ${escapeHtml(mensagem)}
+      </article>
+    `);
+  } else if (!houveFalha) {
+    blocos.push('<p class="text-sm font-bold text-slate-500">Nenhuma notificação pendente.</p>');
+  }
+  if (houveFalha) {
+    blocos.push(`
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-100 p-3">
+        <p class="text-sm font-bold text-slate-600">${escapeHtml(MENSAGEM_ERRO)}</p>
+        <button type="button" data-recarregar-notificacoes class="min-h-10 rounded-xl bg-slate-900 px-4 text-xs font-black uppercase text-white">Tentar novamente</button>
+      </div>
+    `);
+  }
+  el.painelNotificacoes.innerHTML = blocos.join("");
+
+  el.avisoRompimentosTexto.textContent = mensagem;
+  const mostrarAviso = datas.length && !avisosFechados.has(chaveAvisoAtual);
+  el.avisoRompimentosAtrasados.hidden = !mostrarAviso;
+  el.avisoRompimentosAtrasados.classList.toggle("hidden", !mostrarAviso);
+}
+
+function mensagemAvisoAtrasos(datas) {
+  const datasFormatadas = datas.map(formatarDataIso);
+  const lista = datasFormatadas.length > 1
+    ? `${datasFormatadas.slice(0, -1).join(", ")} e ${datasFormatadas.at(-1)}`
+    : datasFormatadas[0];
+  return `Você tem rompimentos em atraso ${datas.length === 1 ? "do dia" : "dos dias"} ${lista}. Favor realizar o rompimento. Caso já tenha feito, favor desconsiderar este aviso.`;
+}
+
+function fecharAvisoAtrasos() {
+  if (chaveAvisoAtual) avisosFechados.add(chaveAvisoAtual);
+  el.avisoRompimentosAtrasados.hidden = true;
+  el.avisoRompimentosAtrasados.classList.add("hidden");
+}
+
+function alternarCentralNotificacoes() {
+  definirCentralAberta(el.painelNotificacoes.hidden);
+}
+
+function definirCentralAberta(aberta) {
+  el.painelNotificacoes.hidden = !aberta;
+  el.painelNotificacoes.classList.toggle("hidden", !aberta);
+  el.btnAlternarNotificacoes.setAttribute("aria-expanded", aberta ? "true" : "false");
+  el.iconeNotificacoes.classList.toggle("rotate-180", aberta);
 }
 
 function renderizarRompimentos(grupos) {
@@ -299,10 +452,58 @@ function dataIsoParaLocal(iso) {
 }
 
 function inicioSemanaLocalIso(iso) {
-  const data = dataIsoParaLocal(iso);
-  const diaSemana = data.getDay();
-  data.setDate(data.getDate() + (diaSemana === 0 ? -6 : 1 - diaSemana));
-  return dataLocalIso(data);
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+  const diaSemana = data.getUTCDay();
+  data.setUTCDate(data.getUTCDate() + (diaSemana === 0 ? -6 : 1 - diaSemana));
+  return data.toISOString().slice(0, 10);
+}
+
+function hojeSaoPauloIso() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const valores = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+  return `${valores.year}-${valores.month}-${valores.day}`;
+}
+
+function adicionarDiasIso(iso, quantidade) {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+  data.setUTCDate(data.getUTCDate() + quantidade);
+  return data.toISOString().slice(0, 10);
+}
+
+function iniciosSemanasNoIntervalo(inicio, fim) {
+  const semanas = [];
+  let semana = inicioSemanaLocalIso(inicio);
+  while (semana <= fim) {
+    semanas.push(semana);
+    semana = adicionarDiasIso(semana, 7);
+  }
+  return semanas;
+}
+
+async function executarComLimite(itens, limite, tarefa) {
+  const resultados = new Array(itens.length);
+  let proximo = 0;
+  const trabalhadores = Array.from({ length: Math.min(limite, itens.length) }, async () => {
+    while (proximo < itens.length) {
+      const indice = proximo;
+      proximo += 1;
+      resultados[indice] = await tarefa(itens[indice]);
+    }
+  });
+  await Promise.all(trabalhadores);
+  return resultados;
+}
+
+function formatarDataIso(iso) {
+  const [ano, mes, dia] = iso.split("-");
+  return `${dia}/${mes}/${ano}`;
 }
 
 function nomeCompleto(funcionario) {

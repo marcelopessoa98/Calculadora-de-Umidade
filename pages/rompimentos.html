@@ -71,6 +71,55 @@
           <p id="funcionarioObra" class="break-words text-sm font-bold text-red-600"></p>
         </article>
 
+        <section
+          id="avisoRompimentosAtrasados"
+          class="relative mt-4 hidden rounded-2xl border border-amber-300 bg-amber-50 p-5 pr-12 shadow-sm"
+          hidden
+          role="alert"
+          aria-live="assertive"
+        >
+          <button
+            id="btnFecharAvisoAtrasos"
+            type="button"
+            class="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-xl text-amber-800 transition hover:bg-amber-100"
+            aria-label="Fechar aviso"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          <div class="flex items-start gap-3">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-amber-950">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </span>
+            <div class="min-w-0">
+              <h3 class="font-black text-amber-950">Aviso de rompimentos em atraso</h3>
+              <p id="avisoRompimentosTexto" class="mt-1 break-words text-sm font-bold leading-6 text-amber-900"></p>
+            </div>
+          </div>
+        </section>
+
+        <section id="centralNotificacoes" class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <button
+            id="btnAlternarNotificacoes"
+            type="button"
+            class="flex min-h-14 w-full items-center gap-3 px-4 text-left"
+            aria-expanded="false"
+            aria-controls="painelNotificacoes"
+          >
+            <span class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+              <i class="fa-solid fa-bell"></i>
+              <span id="contadorNotificacoes" class="absolute -right-1 -top-1 hidden min-w-5 rounded-full bg-red-600 px-1 text-center text-[10px] font-black leading-5 text-white" hidden></span>
+            </span>
+            <span class="min-w-0 flex-1">
+              <strong class="block text-sm font-black text-slate-900">Notificações</strong>
+              <span id="resumoNotificacoes" class="block text-xs font-bold text-slate-500">Verificando pendências...</span>
+            </span>
+            <i id="iconeNotificacoes" class="fa-solid fa-chevron-down text-slate-400 transition-transform"></i>
+          </button>
+          <div id="painelNotificacoes" class="hidden border-t border-slate-100 p-4" aria-live="polite" hidden>
+            <p class="text-sm font-bold text-slate-500">Verificando pendências...</p>
+          </div>
+        </section>
+
         <article class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div class="flex items-center justify-between gap-2 border-b border-slate-100 p-3">
             <button id="mesAnterior" type="button" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700" aria-label="Mês anterior">
