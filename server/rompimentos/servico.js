@@ -46,7 +46,12 @@ async function aguardarColeta(firebase, caminhoColeta, limiteMs = 45_000) {
   throw new Error("COLETA_EM_ANDAMENTO");
 }
 
-async function obterColetaGlobal(firebase, configuracao, inicioSemana) {
+async function obterColetaGlobal(
+  firebase,
+  configuracao,
+  inicioSemana,
+  coletar = coletarRompimentosConcreFuji,
+) {
   const chave = chaveSemana(inicioSemana);
   const caminhoColeta = `rompimentos/coletas/${chave}`;
   const caminhoLock = `rompimentos/locks/${chave}`;
@@ -70,7 +75,15 @@ async function obterColetaGlobal(firebase, configuracao, inicioSemana) {
   }
 
   try {
-    const nova = await coletarRompimentosConcreFuji(configuracao, inicioSemana);
+    let nova;
+    try {
+      nova = await coletar(configuracao, inicioSemana);
+    } catch (erro) {
+      // Uma indisponibilidade temporária no sistema externo não deve derrubar
+      // a consulta quando já existe uma coleta anterior consistente.
+      if (coletaUtilizavel(existente)) return existente;
+      throw erro;
+    }
     const coleta = {
       versao: 9,
       status: "concluida",

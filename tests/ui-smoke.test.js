@@ -135,7 +135,17 @@ async function prepararPagina(context) {
       },
     };
   });
+  let falharPrimeiraConsultaRompimentos = true;
   await context.route("**/api/rompimentos?**", async (rota) => {
+    if (falharPrimeiraConsultaRompimentos) {
+      falharPrimeiraConsultaRompimentos = false;
+      await rota.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ success: false }),
+      });
+      return;
+    }
     const url = new URL(rota.request().url());
     const data = url.searchParams.get("data");
     await rota.fulfill({
@@ -349,7 +359,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       await page.getByRole("button", { name: /Marcelo Silva/i }).click();
       await page.getByText("398-5").waitFor();
       await page.getByText("Usi Beton - 20 MPa").waitFor();
-      assert.ok(requisicoesRompimentos.length - requisicoesAntes <= 1, "notificações não devem competir com a semana visível");
+      assert.ok(requisicoesRompimentos.length - requisicoesAntes <= 2, "a semana visível pode repetir uma vez após falha transitória");
       assert.match(await page.locator("#resumoNotificacoes").textContent(), /Toque para verificar/i);
       await page.locator("#btnAlternarNotificacoes").click();
       await page.locator("#avisoRompimentosAtrasados").waitFor({ state: "visible" });
@@ -361,6 +371,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       assert.ok(overflow <= 1, `overflow horizontal em ${largura}px: ${overflow}px`);
     }
+    assert.ok(requisicoesRompimentos.length >= 2, "a consulta deve se recuperar da primeira resposta 503");
 
     for (const largura of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });

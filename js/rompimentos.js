@@ -69,6 +69,10 @@ function registrarEventos() {
     if (event.target.closest("[data-recarregar-notificacoes]"))
       carregarNotificacoesAtrasadas(true);
   });
+  el.estadoRompimentos.addEventListener("click", (event) => {
+    if (event.target.closest("[data-recarregar-rompimentos]"))
+      carregarRompimentos();
+  });
   el.mesAnterior.addEventListener("click", () => alterarMes(-1));
   el.proximoMes.addEventListener("click", () => alterarMes(1));
   el.calendario.addEventListener("click", (event) => {
@@ -257,7 +261,7 @@ async function carregarRompimentos() {
       ),
     );
   } catch {
-    if (idRequisicao === requisicaoAtual) mostrarEstado(MENSAGEM_ERRO);
+    if (idRequisicao === requisicaoAtual) mostrarEstado(MENSAGEM_ERRO, true);
   }
 }
 
@@ -278,14 +282,27 @@ async function obterRompimentosSemana(funcionarioId, dataConsulta) {
       funcionarioId,
       data: dataConsulta,
     });
-    const resposta = await fetch(`/api/rompimentos?${parametros.toString()}`, {
-      headers: { Accept: "application/json" },
-    });
-    const resultado = await resposta.json().catch(() => null);
-    if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
-    cacheSemanas.set(chaveCache, resultado);
-    salvarCacheSessao(chaveCache, resultado);
-    return resultado;
+    const url = `/api/rompimentos?${parametros.toString()}`;
+    for (let tentativa = 0; tentativa < 2; tentativa += 1) {
+      let resposta;
+      try {
+        resposta = await fetch(url, { headers: { Accept: "application/json" } });
+      } catch (erro) {
+        if (tentativa > 0) throw erro;
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        continue;
+      }
+      const resultado = await resposta.json().catch(() => null);
+      if (resposta.ok && resultado?.success) {
+        cacheSemanas.set(chaveCache, resultado);
+        salvarCacheSessao(chaveCache, resultado);
+        return resultado;
+      }
+      if (tentativa > 0 || ![502, 503, 504].includes(resposta.status))
+        throw new Error("FALHA_PUBLICA");
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    throw new Error("FALHA_PUBLICA");
   })();
 
   requisicoesSemanas.set(chaveCache, requisicao);
@@ -544,9 +561,17 @@ function renderizarRompimentos(grupos) {
   });
 }
 
-function mostrarEstado(mensagem) {
+function mostrarEstado(mensagem, permitirNovaTentativa = false) {
   el.rompimentosLista.innerHTML = "";
   el.estadoRompimentos.textContent = mensagem;
+  if (permitirNovaTentativa) {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.dataset.recarregarRompimentos = "";
+    botao.className = "mx-auto mt-3 block rounded-xl bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-wider text-white";
+    botao.textContent = "Tentar novamente";
+    el.estadoRompimentos.appendChild(botao);
+  }
   el.estadoRompimentos.classList.remove("hidden");
 }
 
