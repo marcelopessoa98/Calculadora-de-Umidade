@@ -63,5 +63,5 @@ test("API rejeita entrada inválida sem revelar detalhes técnicos", async () =>
     success: false,
     message: "Não foi possível carregar os rompimentos. Tente novamente.",
   });
-  assert.equal(res.headers["Cache-Control"], "no-store");
+  assert.match(res.headers["Cache-Control"], /(?:^|,\s*)no-store(?:,|$)/);
 });

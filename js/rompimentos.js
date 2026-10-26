@@ -245,14 +245,21 @@ async function carregarRompimentos() {
   const dataConsulta = dataSelecionada;
   mostrarEstado(MENSAGEM_CARREGANDO);
 
+  let resultado;
   try {
-    const resultado = await obterRompimentosSemana(funcionarioId, dataConsulta);
+    resultado = await obterRompimentosSemana(funcionarioId, dataConsulta);
     if (
       idRequisicao !== requisicaoAtual ||
       funcionarioSelecionado?.id !== funcionarioId
     )
       return;
+  } catch (erro) {
+    if (idRequisicao === requisicaoAtual)
+      mostrarEstado(MENSAGEM_ERRO, true, codigoErroPublico(erro, "REDE"));
+    return;
+  }
 
+  try {
     datasComRompimentos = new Set(resultado.datasComRompimentos || []);
     renderizarCalendario();
     renderizarRompimentos(
@@ -260,8 +267,10 @@ async function carregarRompimentos() {
         (grupo) => grupo.data === dataConsulta,
       ),
     );
-  } catch {
-    if (idRequisicao === requisicaoAtual) mostrarEstado(MENSAGEM_ERRO, true);
+  } catch (erro) {
+    console.error("Falha ao exibir rompimentos.", erro);
+    if (idRequisicao === requisicaoAtual)
+      mostrarEstado(MENSAGEM_ERRO, true, "TELA");
   }
 }
 
@@ -282,13 +291,16 @@ async function obterRompimentosSemana(funcionarioId, dataConsulta) {
       funcionarioId,
       data: dataConsulta,
     });
-    const url = `/api/rompimentos?${parametros.toString()}`;
     for (let tentativa = 0; tentativa < 2; tentativa += 1) {
       let resposta;
       try {
-        resposta = await fetch(url, { headers: { Accept: "application/json" } });
+        parametros.set("tentativa", `${Date.now()}-${tentativa}`);
+        resposta = await fetch(`/api/rompimentos?${parametros.toString()}`, {
+          headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+          cache: "no-store",
+        });
       } catch (erro) {
-        if (tentativa > 0) throw erro;
+        if (tentativa > 0) throw criarErroPublico("REDE", erro);
         await new Promise((resolve) => setTimeout(resolve, 800));
         continue;
       }
@@ -299,10 +311,10 @@ async function obterRompimentosSemana(funcionarioId, dataConsulta) {
         return resultado;
       }
       if (tentativa > 0 || ![502, 503, 504].includes(resposta.status))
-        throw new Error("FALHA_PUBLICA");
+        throw criarErroPublico(`HTTP ${resposta.status || 0}`);
       await new Promise((resolve) => setTimeout(resolve, 800));
     }
-    throw new Error("FALHA_PUBLICA");
+    throw criarErroPublico("REDE");
   })();
 
   requisicoesSemanas.set(chaveCache, requisicao);
@@ -441,7 +453,7 @@ function mensagemAvisoAtrasos(datas) {
   const datasFormatadas = datas.map(formatarDataIso);
   const lista =
     datasFormatadas.length > 1
-      ? `${datasFormatadas.slice(0, -1).join(", ")} e ${datasFormatadas.at(-1)}`
+      ? `${datasFormatadas.slice(0, -1).join(", ")} e ${datasFormatadas[datasFormatadas.length - 1]}`
       : datasFormatadas[0];
   return `Você tem rompimentos em atraso ${datas.length === 1 ? "do dia" : "dos dias"} ${lista}. Favor realizar o rompimento. Caso já tenha feito, desconsiderar este aviso.`;
 }
@@ -503,25 +515,25 @@ function renderizarRompimentos(grupos) {
   });
 
   porReferencia.forEach((itens, referencia) => {
-    const detalhes = itens.flatMap((item) => {
-      if (Array.isArray(item.detalhes) && item.detalhes.length)
-        return item.detalhes;
-      if (Array.isArray(item.cpsBrutos) && item.cpsBrutos.length) {
-        return item.cpsBrutos.map((cp) => ({
+    const detalhes = [];
+    itens.forEach((item) => {
+      if (Array.isArray(item.detalhes) && item.detalhes.length) {
+        detalhes.push(...item.detalhes);
+      } else if (Array.isArray(item.cpsBrutos) && item.cpsBrutos.length) {
+        detalhes.push(...item.cpsBrutos.map((cp) => ({
           obra: referencia,
           cp,
           idade: item.idade,
           fckEstimado: "",
-        }));
-      }
-      return [
-        {
+        })));
+      } else {
+        detalhes.push({
           obra: referencia,
           cp: item.cpTexto || "CP não informado",
           idade: item.idade,
           fckEstimado: "",
-        },
-      ];
+        });
+      }
     });
     const article = document.createElement("article");
     article.className =
@@ -561,9 +573,15 @@ function renderizarRompimentos(grupos) {
   });
 }
 
-function mostrarEstado(mensagem, permitirNovaTentativa = false) {
+function mostrarEstado(mensagem, permitirNovaTentativa = false, codigo = "") {
   el.rompimentosLista.innerHTML = "";
   el.estadoRompimentos.textContent = mensagem;
+  if (codigo) {
+    const diagnostico = document.createElement("small");
+    diagnostico.className = "mt-2 block text-[10px] font-black uppercase tracking-wider text-slate-400";
+    diagnostico.textContent = `Código: ${codigo}`;
+    el.estadoRompimentos.appendChild(diagnostico);
+  }
   if (permitirNovaTentativa) {
     const botao = document.createElement("button");
     botao.type = "button";
@@ -619,10 +637,22 @@ function hojeSaoPauloIso() {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(new Date());
-  const valores = Object.fromEntries(
-    partes.map((parte) => [parte.type, parte.value]),
-  );
+  const valores = {};
+  partes.forEach((parte) => { valores[parte.type] = parte.value; });
   return `${valores.year}-${valores.month}-${valores.day}`;
+}
+
+function criarErroPublico(codigo, causa) {
+  const erro = new Error(codigo);
+  erro.codigoPublico = codigo;
+  erro.cause = causa;
+  return erro;
+}
+
+function codigoErroPublico(erro, padrao = "ERRO") {
+  return /^[A-Z]+(?: [0-9]{1,3})?$/.test(String(erro?.codigoPublico || ""))
+    ? erro.codigoPublico
+    : padrao;
 }
 
 function adicionarDiasIso(iso, quantidade) {

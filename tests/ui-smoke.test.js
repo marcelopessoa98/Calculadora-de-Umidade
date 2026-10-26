@@ -372,6 +372,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       assert.ok(overflow <= 1, `overflow horizontal em ${largura}px: ${overflow}px`);
     }
     assert.ok(requisicoesRompimentos.length >= 2, "a consulta deve se recuperar da primeira resposta 503");
+    assert.ok(new Set(requisicoesRompimentos.slice(0, 2)).size === 2, "cada tentativa deve evitar resposta intermediária armazenada");
 
     for (const largura of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });

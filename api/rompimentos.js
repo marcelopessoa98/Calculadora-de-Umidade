@@ -6,7 +6,8 @@ const { obterRompimentosFuncionario } = require("../server/rompimentos/servico")
 const MENSAGEM_ERRO = "Não foi possível carregar os rompimentos. Tente novamente.";
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  res.setHeader("Pragma", "no-cache");
 
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
