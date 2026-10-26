@@ -4,7 +4,6 @@ const DB_CLIENTES = "administracao/clientes";
 const DB_OBRAS = "administracao/obras";
 const DB_FUNCIONARIOS_ROMPIMENTOS = "administracao/funcionariosRompimentos";
 const DB_FUNCIONARIOS_PASSAGENS = "administracao/funcionariosPassagens";
-const DB_PASSAGENS_EXTRAS = "passagensExtras";
 const IDADES_PADRAO = [1, 3, 7, 14, 28, 56, 63];
 const ITENS_POR_PAGINA = 10;
 
@@ -380,9 +379,11 @@ async function consultarPassagensExtras() {
   el.nomeFuncionarioPassagens.textContent = nomeCompletoFuncionario(funcionario);
 
   try {
-    const snapshot = await database.ref(`${DB_PASSAGENS_EXTRAS}/${funcionarioId}`).once("value");
-    const passagens = extrairPassagens(snapshot.val())
-      .filter((passagem) => passagem.data >= inicio && passagem.data <= fim)
+    const parametros = new URLSearchParams({ funcionarioId, inicio, fim });
+    const resposta = await fetch(`/api/passagens-extras?${parametros.toString()}`, { headers: { Accept: "application/json" } });
+    const resultado = await resposta.json().catch(() => null);
+    if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
+    const passagens = (resultado.passagens || [])
       .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")) || String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
     renderizarPassagensAdmin(passagens);
   } catch {
@@ -394,12 +395,6 @@ async function consultarPassagensExtras() {
     el.btnFiltrarPassagens.disabled = false;
     el.btnFiltrarPassagens.classList.remove("opacity-60");
   }
-}
-
-function extrairPassagens(valor) {
-  return Object.entries(valor || {}).flatMap(([mes, registros]) =>
-    Object.entries(registros || {}).map(([id, passagem]) => ({ id, mes, ...passagem })),
-  );
 }
 
 function renderizarPassagensAdmin(passagens) {

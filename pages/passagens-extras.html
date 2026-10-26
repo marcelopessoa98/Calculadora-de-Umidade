@@ -9,7 +9,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/assets/css/tailwind.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
       * { box-sizing: border-box; }
@@ -77,9 +77,11 @@
           </div>
           <form id="formPassagem" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div class="grid gap-3 sm:grid-cols-2">
-              <label class="block"><span class="mb-1 ml-1 block text-[10px] font-black uppercase text-slate-400">Estava na obra</span><select id="obraOrigem" required class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-red-500"></select></label>
-              <label class="block"><span class="mb-1 ml-1 block text-[10px] font-black uppercase text-slate-400">Foi para a obra</span><select id="obraDestino" required class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-red-500"></select></label>
+              <label class="block"><span class="mb-1 ml-1 block text-[10px] font-black uppercase text-slate-400">Estava na obra</span><input id="obraOrigem" list="obrasSugestoes" required autocomplete="off" aria-describedby="ajudaBuscaObras" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-red-500" placeholder="Digite o nome ou referência" /></label>
+              <label class="block"><span class="mb-1 ml-1 block text-[10px] font-black uppercase text-slate-400">Foi para a obra</span><input id="obraDestino" list="obrasSugestoes" required autocomplete="off" aria-describedby="ajudaBuscaObras" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-red-500" placeholder="Digite o nome ou referência" /></label>
+              <datalist id="obrasSugestoes"></datalist>
             </div>
+            <p id="ajudaBuscaObras" class="mt-2 text-xs font-medium text-slate-500"><i class="fa-solid fa-magnifying-glass mr-1"></i>Digite parte do nome ou da referência e escolha uma obra da lista.</p>
             <p id="erroFormulario" class="mt-3 hidden rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700" role="alert"></p>
             <button id="btnSalvarPassagem" type="submit" class="mt-4 w-full rounded-xl bg-red-600 py-4 text-xs font-black uppercase tracking-widest text-white shadow-sm transition active:scale-[.98]"><i class="fa-solid fa-plus mr-2"></i>Adicionar passagem extra</button>
           </form>

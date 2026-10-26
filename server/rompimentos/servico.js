@@ -3,18 +3,37 @@
 const { randomUUID } = require("node:crypto");
 const { obterConfiguracao } = require("./config");
 const { FirebaseRest } = require("./firebase-rest");
-const { chaveSemana } = require("./datas");
+const { chaveSemana, datasDaSemana } = require("./datas");
 const { coletarRompimentosConcreFuji } = require("./coletor");
 const { filtrarPorFuncionario, agruparRompimentos } = require("./normalizacao");
 
 function coletaValida(coleta, agora = Date.now()) {
   return Boolean(
-    coleta &&
-    coleta.versao === 9 &&
-    coleta.status === "concluida" &&
-    Array.isArray(coleta.dados) &&
+    coletaUtilizavel(coleta) &&
     new Date(coleta.expiraEm).getTime() > agora,
   );
+}
+
+function coletaUtilizavel(coleta) {
+  return Boolean(coleta && coleta.versao === 9 && coleta.status === "concluida" && Array.isArray(coleta.dados));
+}
+
+function hojeSaoPauloIso(agora = new Date()) {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(agora);
+  const valor = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+  return `${valor.year}-${valor.month}-${valor.day}`;
+}
+
+function ttlColeta(configuracao, inicioSemana, agora = new Date()) {
+  const fimSemana = datasDaSemana(inicioSemana).at(-1);
+  return fimSemana < hojeSaoPauloIso(agora)
+    ? configuracao.cacheHistoricoTtlMs
+    : configuracao.cacheTtlMs;
 }
 
 async function aguardarColeta(firebase, caminhoColeta, limiteMs = 45_000) {
@@ -43,7 +62,12 @@ async function obterColetaGlobal(firebase, configuracao, inicioSemana) {
   };
 
   const adquirido = await firebase.tentarAdquirirLock(caminhoLock, lock, agora);
-  if (!adquirido) return aguardarColeta(firebase, caminhoColeta);
+  if (!adquirido) {
+    // Enquanto outra função atualiza a semana, uma coleta expirada ainda é
+    // preferível a bloquear todos os usuários por até 45 segundos.
+    if (coletaUtilizavel(existente)) return existente;
+    return aguardarColeta(firebase, caminhoColeta);
+  }
 
   try {
     const nova = await coletarRompimentosConcreFuji(configuracao, inicioSemana);
@@ -52,7 +76,7 @@ async function obterColetaGlobal(firebase, configuracao, inicioSemana) {
       status: "concluida",
       inicioSemana,
       coletadoEm: nova.coletadoEm,
-      expiraEm: new Date(Date.now() + configuracao.cacheTtlMs).toISOString(),
+      expiraEm: new Date(Date.now() + ttlColeta(configuracao, inicioSemana)).toISOString(),
       dados: nova.dados,
     };
     await firebase.salvar(caminhoColeta, coleta);
@@ -90,6 +114,9 @@ async function obterRompimentosFuncionario(funcionarioId, inicioSemana) {
 
 module.exports = {
   coletaValida,
+  coletaUtilizavel,
+  hojeSaoPauloIso,
+  ttlColeta,
   aguardarColeta,
   obterColetaGlobal,
   obterRompimentosFuncionario,

@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O módulo mantém a aplicação existente em HTML, JavaScript, Tailwind via CDN e Firebase Realtime Database. A coleta do sistema externo ocorre exclusivamente na função server-side `api/rompimentos.js`; usuário, senha, cookies e sessão nunca são enviados ao navegador nem persistidos no Firebase.
+O módulo mantém a aplicação existente em HTML, JavaScript, CSS Tailwind compilado e Firebase Realtime Database. A coleta do sistema externo ocorre exclusivamente na função server-side `api/rompimentos.js`; usuário, senha, cookies e sessão nunca são enviados ao navegador nem persistidos no Firebase.
 
 Fluxo:
 
@@ -15,7 +15,9 @@ Fluxo:
 7. a API filtra referências e idades do funcionário;
 8. os CPs são normalizados e agrupados para apresentação.
 
-Para reduzir o tempo de espera, o coletor mantém o calendário aberto em uma aba, consulta os links de detalhe em outra aba autenticada e não baixa imagens, fontes ou mídia. Scripts, folhas de estilo e requisições de dados continuam habilitados. No navegador do funcionário, a resposta semanal também é reutilizada ao alternar entre datas da mesma semana.
+Para reduzir o tempo de espera, o coletor mantém o calendário aberto em uma aba, reutiliza uma segunda aba autenticada para os detalhes e não baixa imagens, fontes ou mídia. Scripts, folhas de estilo e requisições de dados continuam habilitados. No navegador do funcionário, a resposta semanal é reutilizada em memória e por dez minutos na sessão ao alternar entre datas ou retornar à tela.
+
+A semana visível tem prioridade. As semanas anteriores usadas pelas notificações só são consultadas quando o funcionário abre a central de notificações. Semanas históricas permanecem seis horas no cache server-side; a semana atual permanece uma hora. Se outra função já estiver atualizando uma semana e existir uma coleta anterior utilizável, ela é entregue imediatamente em vez de bloquear o usuário por até 45 segundos.
 
 `Pendentes (MA)` e `Lançados` não fazem parte dos localizadores aceitos pelo coletor.
 

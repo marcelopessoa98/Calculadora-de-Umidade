@@ -3,6 +3,7 @@ const MENSAGEM_CARREGANDO = "Carregando rompimentos...";
 const MENSAGEM_VAZIO = "Nenhum rompimento para esta data.";
 const MENSAGEM_ERRO =
   "Não foi possível carregar os rompimentos. Tente novamente.";
+const CACHE_SESSAO_TTL_MS = 10 * 60 * 1000;
 
 let database = null;
 let funcionarios = [];
@@ -13,6 +14,8 @@ let datasComRompimentos = new Set();
 let requisicaoAtual = 0;
 let requisicaoNotificacoesAtual = 0;
 let chaveAvisoAtual = "";
+let chaveNotificacoesCarregadas = "";
+let notificacoesCarregando = false;
 const cacheSemanas = new Map();
 const requisicoesSemanas = new Map();
 const avisosFechados = new Set();
@@ -64,7 +67,7 @@ function registrarEventos() {
   );
   el.painelNotificacoes.addEventListener("click", (event) => {
     if (event.target.closest("[data-recarregar-notificacoes]"))
-      carregarNotificacoesAtrasadas();
+      carregarNotificacoesAtrasadas(true);
   });
   el.mesAnterior.addEventListener("click", () => alterarMes(-1));
   el.proximoMes.addEventListener("click", () => alterarMes(1));
@@ -150,7 +153,6 @@ function selecionarFuncionario(id) {
   prepararCentralNotificacoes();
   renderizarCalendario();
   carregarRompimentos();
-  carregarNotificacoesAtrasadas();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -263,6 +265,11 @@ async function obterRompimentosSemana(funcionarioId, dataConsulta) {
   const inicioSemana = inicioSemanaLocalIso(dataConsulta);
   const chaveCache = `${funcionarioId}:${inicioSemana}`;
   if (cacheSemanas.has(chaveCache)) return cacheSemanas.get(chaveCache);
+  const cacheSessao = lerCacheSessao(chaveCache);
+  if (cacheSessao) {
+    cacheSemanas.set(chaveCache, cacheSessao);
+    return cacheSessao;
+  }
   if (requisicoesSemanas.has(chaveCache))
     return requisicoesSemanas.get(chaveCache);
 
@@ -277,6 +284,7 @@ async function obterRompimentosSemana(funcionarioId, dataConsulta) {
     const resultado = await resposta.json().catch(() => null);
     if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
     cacheSemanas.set(chaveCache, resultado);
+    salvarCacheSessao(chaveCache, resultado);
     return resultado;
   })();
 
@@ -290,22 +298,27 @@ async function obterRompimentosSemana(funcionarioId, dataConsulta) {
 
 function prepararCentralNotificacoes() {
   chaveAvisoAtual = "";
+  chaveNotificacoesCarregadas = "";
+  notificacoesCarregando = false;
   el.avisoRompimentosAtrasados.hidden = true;
   el.avisoRompimentosAtrasados.classList.add("hidden");
   el.contadorNotificacoes.hidden = true;
   el.contadorNotificacoes.classList.add("hidden");
   el.contadorNotificacoes.textContent = "";
-  el.resumoNotificacoes.textContent = "Verificando pendências...";
+  el.resumoNotificacoes.textContent = "Toque para verificar pendências.";
   el.painelNotificacoes.innerHTML =
-    '<p class="text-sm font-bold text-slate-500">Verificando pendências...</p>';
+    '<p class="text-sm font-bold text-slate-500">Abra para consultar os rompimentos anteriores.</p>';
   definirCentralAberta(false);
 }
 
-async function carregarNotificacoesAtrasadas() {
+async function carregarNotificacoesAtrasadas(forcar = false) {
   if (!funcionarioSelecionado) return;
   const idRequisicao = ++requisicaoNotificacoesAtual;
   const funcionarioId = funcionarioSelecionado.id;
   const hoje = hojeSaoPauloIso();
+  const chaveConsulta = `${funcionarioId}:${hoje}`;
+  if (!forcar && (notificacoesCarregando || chaveNotificacoesCarregadas === chaveConsulta)) return;
+  notificacoesCarregando = true;
   const inicio = `${hoje.slice(0, 8)}01`;
   const fim = adicionarDiasIso(hoje, -1);
 
@@ -315,6 +328,8 @@ async function carregarNotificacoesAtrasadas() {
 
   if (fim < inicio) {
     renderizarNotificacoesAtrasadas([], false, funcionarioId, hoje);
+    chaveNotificacoesCarregadas = chaveConsulta;
+    notificacoesCarregando = false;
     return;
   }
 
@@ -339,7 +354,7 @@ async function carregarNotificacoesAtrasadas() {
     idRequisicao !== requisicaoNotificacoesAtual ||
     funcionarioSelecionado?.id !== funcionarioId
   )
-    return;
+    return void (notificacoesCarregando = false);
 
   const datas = new Set();
   resultados.forEach(({ sucesso, resultado }) => {
@@ -355,6 +370,8 @@ async function carregarNotificacoesAtrasadas() {
     funcionarioId,
     hoje,
   );
+  chaveNotificacoesCarregadas = chaveConsulta;
+  notificacoesCarregando = false;
 }
 
 function renderizarNotificacoesAtrasadas(
@@ -419,7 +436,28 @@ function fecharAvisoAtrasos() {
 }
 
 function alternarCentralNotificacoes() {
-  definirCentralAberta(el.painelNotificacoes.hidden);
+  const abrir = el.painelNotificacoes.hidden;
+  definirCentralAberta(abrir);
+  if (abrir) carregarNotificacoesAtrasadas();
+}
+
+function lerCacheSessao(chave) {
+  try {
+    const item = JSON.parse(sessionStorage.getItem(`sgi_rompimentos:${chave}`) || "null");
+    if (!item || item.expiraEm <= Date.now() || !item.resultado?.success) return null;
+    return item.resultado;
+  } catch {
+    return null;
+  }
+}
+
+function salvarCacheSessao(chave, resultado) {
+  try {
+    sessionStorage.setItem(`sgi_rompimentos:${chave}`, JSON.stringify({
+      expiraEm: Date.now() + CACHE_SESSAO_TTL_MS,
+      resultado,
+    }));
+  } catch {}
 }
 
 function definirCentralAberta(aberta) {

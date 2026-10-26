@@ -29,6 +29,7 @@ function iniciarServidor() {
   const tipos = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
     ".json": "application/json; charset=utf-8",
     ".webmanifest": "application/manifest+json; charset=utf-8",
     ".png": "image/png",
@@ -96,7 +97,11 @@ test("todas as paginas registram os metadados do PWA", () => {
     assert.match(fonte, /name="theme-color" content="#c8101e"/);
     assert.match(fonte, /rel="apple-touch-icon"/);
     assert.match(fonte, /src="\/js\/pwa\.js"/);
+    assert.match(fonte, /href="\/assets\/css\/tailwind\.css"/);
+    assert.doesNotMatch(fonte, /cdn\.tailwindcss\.com/);
   }
+
+  assert.ok(fs.statSync(path.join(RAIZ, "assets/css/tailwind.css")).size > 10_000);
 });
 
 test("navegador carrega o manifesto e registra o service worker", async (t) => {

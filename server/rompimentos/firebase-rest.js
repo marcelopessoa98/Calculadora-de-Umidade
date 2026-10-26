@@ -64,6 +64,16 @@ class FirebaseRest {
     }
   }
 
+  async criar(caminho, valor) {
+    try {
+      const referencia = this.referencia(caminho).push();
+      await referencia.set(valor);
+      return { id: referencia.key, ...valor };
+    } catch (erro) {
+      throw codigoErro("FIREBASE_ESCRITA_FALHOU", erro);
+    }
+  }
+
   async remover(caminho) {
     try {
       await this.referencia(caminho).remove();

@@ -25,7 +25,7 @@ async function primeiroArquivoExistente(caminhos) {
 }
 
 function iniciarServidor() {
-  const tipos = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".png": "image/png" };
+  const tipos = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".png": "image/png" };
   const servidor = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, "http://localhost");
@@ -154,6 +154,39 @@ async function prepararPagina(context) {
       }),
     });
   });
+  await context.route("**/api/passagens-extras*", async (rota) => {
+    const requisicao = rota.request();
+    if (requisicao.method() === "POST") {
+      const passagem = requisicao.postDataJSON();
+      await rota.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, passagem: { id: "nova-passagem", ...passagem } }),
+      });
+      return;
+    }
+    const hoje = new Date();
+    const data = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+    await rota.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: true,
+        passagens: [{
+          id: "passagem1",
+          funcionarioId: "passagem-teste",
+          funcionarioNome: "Paulo Santos",
+          data,
+          diaSemana: "segunda-feira",
+          origemObraId: "obra-1",
+          origemObra: "REF-1 - Obra 01",
+          destinoObraId: "obra-2",
+          destinoObra: "REF-2 - Obra 02",
+          criadoEm: new Date().toISOString(),
+        }],
+      }),
+    });
+  });
 }
 
 test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", async (t) => {
@@ -169,7 +202,11 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await prepararPagina(context);
     const page = await context.newPage();
     const errosPagina = [];
+    const requisicoesRompimentos = [];
     page.on("pageerror", (erro) => errosPagina.push(erro.message));
+    page.on("request", (requisicao) => {
+      if (requisicao.url().includes("/api/rompimentos?")) requisicoesRompimentos.push(requisicao.url());
+    });
     const base = `http://127.0.0.1:${porta}`;
 
     await page.goto(base);
@@ -284,16 +321,19 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.getByRole("button", { name: /Selecionar Paulo Santos/i }).click();
     await page.locator("#passagensLista").getByText("REF-1 - Obra 01").waitFor();
     assert.equal(await page.locator("#totalMes").textContent(), "1");
-    await page.locator("#obraOrigem").selectOption("obra-1");
-    await page.locator("#obraDestino").selectOption("obra-2");
+    assert.equal(await page.locator('#obrasSugestoes option[value="REF-1 - Obra 01"]').count(), 1);
+    assert.equal(await page.locator('#obrasSugestoes option[value="REF-2 - Obra 02"]').count(), 1);
+    await page.locator("#obraOrigem").fill("REF-1 - Obra 01");
+    await page.locator("#obraDestino").fill("REF-2 - Obra 02");
+    const requisicaoPassagem = page.waitForRequest((requisicao) =>
+      requisicao.url().includes("/api/passagens-extras") && requisicao.method() === "POST",
+    );
     await page.locator("#btnSalvarPassagem").click();
-    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho.startsWith("passagensExtras/passagem-teste/")));
-    const passagemSalva = await page.evaluate(() => window.__dbActions.find((acao) => acao.tipo === "push" && acao.caminho.startsWith("passagensExtras/passagem-teste/")).valor);
+    const passagemSalva = (await requisicaoPassagem).postDataJSON();
     assert.equal(passagemSalva.funcionarioId, "passagem-teste");
     assert.equal(passagemSalva.origemObra, "REF-1 - Obra 01");
     assert.equal(passagemSalva.destinoObra, "REF-2 - Obra 02");
     assert.match(passagemSalva.data, /^\d{4}-\d{2}-\d{2}$/);
-    assert.ok(passagemSalva.diaSemana);
 
     for (const largura of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });
@@ -305,14 +345,17 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     for (const largura of [320, 360, 375, 390, 412, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });
       await page.goto(`${base}/pages/rompimentos.html`);
+      const requisicoesAntes = requisicoesRompimentos.length;
       await page.getByRole("button", { name: /Marcelo Silva/i }).click();
       await page.getByText("398-5").waitFor();
       await page.getByText("Usi Beton - 20 MPa").waitFor();
+      assert.ok(requisicoesRompimentos.length - requisicoesAntes <= 1, "notificações não devem competir com a semana visível");
+      assert.match(await page.locator("#resumoNotificacoes").textContent(), /Toque para verificar/i);
+      await page.locator("#btnAlternarNotificacoes").click();
       await page.locator("#avisoRompimentosAtrasados").waitFor({ state: "visible" });
       assert.match(await page.locator("#avisoRompimentosTexto").textContent(), /Caso já tenha feito, desconsiderar este aviso/);
       await page.locator("#btnFecharAvisoAtrasos").click();
       assert.equal(await page.locator("#avisoRompimentosAtrasados").isHidden(), true);
-      await page.locator("#btnAlternarNotificacoes").click();
       assert.equal(await page.locator("#painelNotificacoes").isVisible(), true);
       assert.match(await page.locator("#painelNotificacoes").textContent(), /rompimentos em atraso/i);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

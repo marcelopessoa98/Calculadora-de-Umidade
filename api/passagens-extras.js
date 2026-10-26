@@ -1,0 +1,154 @@
+"use strict";
+
+const { FirebaseRest } = require("../server/rompimentos/firebase-rest");
+const { FIREBASE_DATABASE_URL } = require("../server/rompimentos/config");
+
+const DB_FUNCIONARIOS = "administracao/funcionariosPassagens";
+const DB_OBRAS = "administracao/obras";
+const DB_PASSAGENS = "passagensExtras";
+const MENSAGEM_ERRO = "Não foi possível processar as passagens extras. Tente novamente.";
+
+function responder(res, status, corpo) {
+  res.setHeader?.("Cache-Control", "no-store");
+  return res.status(status).json(corpo);
+}
+
+function idValido(valor) {
+  return /^[A-Za-z0-9_-]{1,120}$/.test(String(valor || ""));
+}
+
+function dataValida(valor) {
+  const texto = String(valor || "");
+  if (!/^20\d{2}-(0[1-9]|1[0-2])-([012]\d|3[01])$/.test(texto)) return false;
+  const data = new Date(`${texto}T12:00:00Z`);
+  return !Number.isNaN(data.getTime()) && data.toISOString().slice(0, 10) === texto;
+}
+
+function textoSeguro(valor, limite = 180) {
+  const texto = String(valor || "").trim().replace(/\s+/g, " ");
+  return texto && texto.length <= limite ? texto : "";
+}
+
+function nomeCompleto(funcionario) {
+  return `${funcionario?.nome || ""} ${funcionario?.sobrenome || ""}`.trim();
+}
+
+function rotuloObra(obra) {
+  return obra?.referencia ? `${obra.referencia} - ${obra.nome}` : obra?.nome || "";
+}
+
+function diaSemana(dataIso) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(`${dataIso}T12:00:00Z`));
+}
+
+function listaPassagens(valor) {
+  return Object.entries(valor || {}).map(([id, passagem]) => ({ id, ...passagem }));
+}
+
+function listaPeriodo(valor, inicio, fim) {
+  return Object.values(valor || {}).flatMap(listaPassagens)
+    .filter((passagem) => dataValida(passagem.data) && passagem.data >= inicio && passagem.data <= fim);
+}
+
+function validarObra(id, nome, obras, funcionario) {
+  const obraId = String(id || "");
+  const obraNome = textoSeguro(nome);
+  if (!obraId || !obraNome) return null;
+
+  const obra = obras?.[obraId];
+  if (obra && rotuloObra(obra) === obraNome) return { id: obraId, nome: obraNome };
+
+  if (obraId === `atual-${funcionario.id}` && textoSeguro(funcionario.obra) === obraNome) {
+    return { id: obraId, nome: obraNome };
+  }
+  return null;
+}
+
+async function obterFuncionario(firebase, funcionarioId) {
+  const funcionario = await firebase.obter(`${DB_FUNCIONARIOS}/${funcionarioId}`);
+  if (!funcionario || funcionario.ativo === false) return null;
+  return { id: funcionarioId, ...funcionario };
+}
+
+async function processarGet(req, res, firebase, funcionario) {
+  const mes = String(req.query?.mes || "");
+  const inicio = String(req.query?.inicio || "");
+  const fim = String(req.query?.fim || "");
+  let passagens;
+
+  if (/^20\d{2}-(0[1-9]|1[0-2])$/.test(mes)) {
+    passagens = listaPassagens(await firebase.obter(`${DB_PASSAGENS}/${funcionario.id}/${mes}`));
+  } else if (dataValida(inicio) && dataValida(fim) && inicio <= fim) {
+    passagens = listaPeriodo(await firebase.obter(`${DB_PASSAGENS}/${funcionario.id}`), inicio, fim);
+  } else {
+    return responder(res, 400, { success: false, message: MENSAGEM_ERRO });
+  }
+
+  passagens.sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")) || String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+  return responder(res, 200, {
+    success: true,
+    funcionario: { id: funcionario.id, nome: funcionario.nome, sobrenome: funcionario.sobrenome },
+    passagens,
+  });
+}
+
+async function processarPost(req, res, firebase, funcionario) {
+  const corpo = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const data = String(corpo.data || "");
+  if (!dataValida(data)) return responder(res, 400, { success: false, message: MENSAGEM_ERRO });
+
+  const obras = await firebase.obter(DB_OBRAS);
+  const origem = validarObra(corpo.origemObraId, corpo.origemObra, obras, funcionario);
+  const destino = validarObra(corpo.destinoObraId, corpo.destinoObra, obras, funcionario);
+  if (!origem || !destino || origem.id === destino.id || origem.nome === destino.nome) {
+    return responder(res, 400, { success: false, message: MENSAGEM_ERRO });
+  }
+
+  const passagem = await firebase.criar(`${DB_PASSAGENS}/${funcionario.id}/${data.slice(0, 7)}`, {
+    funcionarioId: funcionario.id,
+    funcionarioNome: nomeCompleto(funcionario),
+    data,
+    diaSemana: diaSemana(data),
+    origemObraId: origem.id,
+    origemObra: origem.nome,
+    destinoObraId: destino.id,
+    destinoObra: destino.nome,
+    criadoEm: new Date().toISOString(),
+  });
+  return responder(res, 201, { success: true, passagem });
+}
+
+module.exports = async function handler(req, res) {
+  if (!['GET', 'POST'].includes(req.method)) {
+    res.setHeader?.("Allow", "GET, POST");
+    return responder(res, 405, { success: false, message: MENSAGEM_ERRO });
+  }
+
+  let corpo = req.body || {};
+  if (req.method === "POST" && typeof corpo === "string") {
+    try {
+      corpo = JSON.parse(corpo || "{}");
+    } catch {
+      return responder(res, 400, { success: false, message: MENSAGEM_ERRO });
+    }
+    req.body = corpo;
+  }
+  const funcionarioId = String(req.method === "GET" ? req.query?.funcionarioId : corpo.funcionarioId || "");
+  if (!idValido(funcionarioId)) return responder(res, 400, { success: false, message: MENSAGEM_ERRO });
+
+  try {
+    const firebase = new FirebaseRest(FIREBASE_DATABASE_URL);
+    const funcionario = await obterFuncionario(firebase, funcionarioId);
+    if (!funcionario) return responder(res, 404, { success: false, message: MENSAGEM_ERRO });
+    return req.method === "GET"
+      ? processarGet(req, res, firebase, funcionario)
+      : processarPost(req, res, firebase, funcionario);
+  } catch {
+    return responder(res, 503, { success: false, message: MENSAGEM_ERRO });
+  }
+};
+
+module.exports._internals = { dataValida, textoSeguro, rotuloObra, diaSemana, listaPassagens, listaPeriodo, validarObra };

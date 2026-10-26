@@ -2,22 +2,22 @@
 
 const DB_FUNCIONARIOS = "administracao/funcionariosPassagens";
 const DB_OBRAS = "administracao/obras";
-const DB_PASSAGENS = "passagensExtras";
 
 let database = null;
 let funcionarios = [];
 let obras = [];
+let opcoesObras = [];
 let funcionarioSelecionado = null;
 let dataSelecionada = hojeLocal();
 let mesVisivel = new Date(`${dataSelecionada}T12:00:00`);
 let passagensMes = [];
-let referenciaPassagens = null;
+let controladorPassagens = null;
 
 const el = Object.fromEntries([
   "selecaoFuncionario", "funcionariosLista", "painelFuncionario", "btnTrocarFuncionario",
   "funcionarioNome", "funcionarioObra", "mesAnterior", "proximoMes", "tituloMes",
   "calendario", "diaSemana", "dataSelecionada", "formPassagem", "obraOrigem",
-  "obraDestino", "erroFormulario", "btnSalvarPassagem", "totalMes", "estadoPassagens",
+  "obraDestino", "obrasSugestoes", "erroFormulario", "btnSalvarPassagem", "totalMes", "estadoPassagens",
   "passagensLista",
 ].map((id) => [id, document.getElementById(id)]));
 
@@ -152,25 +152,22 @@ function atualizarDataSelecionada() {
 function preencherObras() {
   const origemAnterior = el.obraOrigem.value;
   const destinoAnterior = el.obraDestino.value;
-  const opcoes = obras.map((obra) => ({ id: obra.id, nome: rotuloObra(obra) }));
+  opcoesObras = obras.map((obra) => ({ id: obra.id, nome: rotuloObra(obra), nomeObra: obra.nome || "" }));
   const obraFuncionario = funcionarioSelecionado?.obra?.trim();
-  if (obraFuncionario && !opcoes.some((item) => mesmoTexto(item.nome, obraFuncionario))) {
-    opcoes.unshift({ id: `atual-${funcionarioSelecionado.id}`, nome: obraFuncionario });
+  if (obraFuncionario && !opcoesObras.some((item) => mesmoTexto(item.nome, obraFuncionario) || mesmoTexto(item.nomeObra, obraFuncionario))) {
+    opcoesObras.unshift({ id: `atual-${funcionarioSelecionado.id}`, nome: obraFuncionario, nomeObra: obraFuncionario });
   }
-  [el.obraOrigem, el.obraDestino].forEach((select, indice) => {
-    select.innerHTML = `<option value="">Selecione a obra</option>`;
-    opcoes.forEach((obra) => {
-      const option = document.createElement("option");
-      option.value = obra.id;
-      option.textContent = obra.nome;
-      select.appendChild(option);
-    });
-    const anterior = indice === 0 ? origemAnterior : destinoAnterior;
-    if ([...select.options].some((option) => option.value === anterior)) select.value = anterior;
+  el.obrasSugestoes.innerHTML = "";
+  opcoesObras.forEach((obra) => {
+    const option = document.createElement("option");
+    option.value = obra.nome;
+    el.obrasSugestoes.appendChild(option);
   });
+  el.obraOrigem.value = opcoesObras.some((obra) => mesmoTexto(obra.nome, origemAnterior)) ? origemAnterior : "";
+  el.obraDestino.value = opcoesObras.some((obra) => mesmoTexto(obra.nome, destinoAnterior)) ? destinoAnterior : "";
   if (!origemAnterior && obraFuncionario) {
-    const option = [...el.obraOrigem.options].find((item) => mesmoTexto(item.textContent, obraFuncionario));
-    if (option) el.obraOrigem.value = option.value;
+    const obraAtual = opcoesObras.find((item) => mesmoTexto(item.nome, obraFuncionario) || mesmoTexto(item.nomeObra, obraFuncionario));
+    if (obraAtual) el.obraOrigem.value = obraAtual.nome;
   }
 }
 
@@ -186,18 +183,22 @@ async function salvarPassagem(event) {
   el.btnSalvarPassagem.disabled = true;
   el.btnSalvarPassagem.classList.add("opacity-60");
   try {
-    await database.ref(`${DB_PASSAGENS}/${funcionarioSelecionado.id}/${chaveMes(dataSelecionada)}`).push({
+    const resposta = await fetch("/api/passagens-extras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
       funcionarioId: funcionarioSelecionado.id,
-      funcionarioNome: nomeCompleto(funcionarioSelecionado),
       data: dataSelecionada,
-      diaSemana: diaSemana(dataSelecionada),
       origemObraId: origem.id,
       origemObra: origem.nome,
       destinoObraId: destino.id,
       destinoObra: destino.nome,
-      criadoEm: new Date().toISOString(),
+      }),
     });
+    const resultado = await resposta.json().catch(() => null);
+    if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
     el.obraDestino.value = "";
+    await assinarPassagensMes();
   } catch {
     mostrarErro("Não foi possível salvar a passagem extra. Tente novamente.");
   } finally {
@@ -208,16 +209,27 @@ async function salvarPassagem(event) {
 
 function assinarPassagensMes() {
   desassinarPassagens();
-  if (!funcionarioSelecionado || !database) return;
+  if (!funcionarioSelecionado) return Promise.resolve();
   el.estadoPassagens.classList.remove("hidden");
   el.estadoPassagens.textContent = "Carregando passagens...";
-  const caminho = `${DB_PASSAGENS}/${funcionarioSelecionado.id}/${chaveMes(isoLocal(mesVisivel))}`;
-  referenciaPassagens = database.ref(caminho);
-  referenciaPassagens.on("value", (snapshot) => {
-    passagensMes = objetoParaLista(snapshot.val()).sort(ordenarPassagens);
+  controladorPassagens = new AbortController();
+  const controladorAtual = controladorPassagens;
+  const parametros = new URLSearchParams({
+    funcionarioId: funcionarioSelecionado.id,
+    mes: chaveMes(isoLocal(mesVisivel)),
+  });
+  return fetch(`/api/passagens-extras?${parametros.toString()}`, {
+    headers: { Accept: "application/json" },
+    signal: controladorAtual.signal,
+  }).then(async (resposta) => {
+    const resultado = await resposta.json().catch(() => null);
+    if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
+    if (controladorPassagens !== controladorAtual) return;
+    passagensMes = (resultado.passagens || []).sort(ordenarPassagens);
     renderizarPassagens();
     renderizarCalendario();
-  }, () => {
+  }).catch((erro) => {
+    if (erro.name === "AbortError" || controladorPassagens !== controladorAtual) return;
     passagensMes = [];
     el.totalMes.textContent = "0";
     el.passagensLista.innerHTML = "";
@@ -227,8 +239,8 @@ function assinarPassagensMes() {
 }
 
 function desassinarPassagens() {
-  if (referenciaPassagens?.off) referenciaPassagens.off("value");
-  referenciaPassagens = null;
+  controladorPassagens?.abort();
+  controladorPassagens = null;
 }
 
 function renderizarPassagens() {
@@ -250,7 +262,7 @@ function renderizarPassagens() {
 
 function mostrarErro(mensagem) { el.erroFormulario.textContent = mensagem; el.erroFormulario.classList.remove("hidden"); }
 function ocultarErro() { el.erroFormulario.textContent = ""; el.erroFormulario.classList.add("hidden"); }
-function opcaoSelecionada(select) { const option = select.options[select.selectedIndex]; return option?.value ? { id: option.value, nome: option.textContent.trim() } : null; }
+function opcaoSelecionada(input) { const opcao = opcoesObras.find((item) => mesmoTexto(item.nome, input.value)); return opcao ? { id: opcao.id, nome: opcao.nome } : null; }
 function objetoParaLista(objeto) { return Object.entries(objeto || {}).map(([id, valor]) => ({ id, ...valor })); }
 function nomeCompleto(item) { return `${item.nome || ""} ${item.sobrenome || ""}`.trim(); }
 function rotuloObra(obra) { return obra.referencia ? `${obra.referencia} - ${obra.nome}` : obra.nome || "Obra sem nome"; }

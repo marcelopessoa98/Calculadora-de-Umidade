@@ -17,6 +17,7 @@ function obterConfiguracao() {
     baseUrl,
     firebaseDatabaseUrl: FIREBASE_DATABASE_URL,
     cacheTtlMs: 60 * 60 * 1000,
+    cacheHistoricoTtlMs: 6 * 60 * 60 * 1000,
     lockTtlMs: 2 * 60 * 1000,
   };
 }
