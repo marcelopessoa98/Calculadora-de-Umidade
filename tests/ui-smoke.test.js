@@ -81,6 +81,9 @@ async function prepararPagina(context) {
         sobrenome: "Santos",
         obra: "Obra 01",
         ativo: true,
+        senhaSalt: "MDEyMzQ1Njc4OWFiY2RlZg==",
+        senhaHash: "L8QSevOYNxMtwOm6aDXwOmAY/xLaZT5j8YfTlPnclG0=",
+        senhaIteracoes: 120000,
       },
     };
     const hoje = new Date();
@@ -168,11 +171,24 @@ async function prepararPagina(context) {
     const requisicao = rota.request();
     if (requisicao.method() === "POST") {
       const passagem = requisicao.postDataJSON();
+      if (passagem.acao === "autenticar") {
+        await rota.fulfill({
+          status: passagem.senha === "1234" ? 200 : 401,
+          contentType: "application/json",
+          body: JSON.stringify({ success: passagem.senha === "1234" }),
+        });
+        return;
+      }
       await rota.fulfill({
         status: 201,
         contentType: "application/json",
         body: JSON.stringify({ success: true, passagem: { id: "nova-passagem", ...passagem } }),
       });
+      return;
+    }
+    if (requisicao.method() === "PATCH") {
+      const passagem = requisicao.postDataJSON();
+      await rota.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, passagem }) });
       return;
     }
     const hoje = new Date();
@@ -318,6 +334,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.locator("#funcionarioPassagemNome").fill("Ana");
     await page.locator("#funcionarioPassagemSobrenome").fill("Souza");
     await page.locator("#funcionarioPassagemObra").fill("Obra 02");
+    await page.locator("#funcionarioPassagemSenha").fill("5678");
     await page.locator("#btnSalvarFuncionarioPassagem").click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/funcionariosPassagens"));
 
@@ -329,12 +346,18 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
 
     await page.goto(`${base}/pages/passagens-extras.html`);
     await page.getByRole("button", { name: /Selecionar Paulo Santos/i }).click();
+    assert.equal(await page.locator("#modalSenhaFuncionario").isVisible(), true);
+    await page.locator("#senhaFuncionario").fill("1234");
+    await page.locator("#btnEntrarFuncionario").click();
     await page.locator("#passagensLista").getByText("REF-1 - Obra 01").waitFor();
     assert.equal(await page.locator("#totalMes").textContent(), "1");
     assert.equal(await page.locator('#obrasSugestoes option[value="REF-1 - Obra 01"]').count(), 1);
     assert.equal(await page.locator('#obrasSugestoes option[value="REF-2 - Obra 02"]').count(), 1);
+    assert.equal(await page.locator("#obraOrigem").inputValue(), "");
+    assert.equal(await page.locator("#obraDestino").inputValue(), "");
     await page.locator("#obraOrigem").fill("REF-1 - Obra 01");
     await page.locator("#obraDestino").fill("REF-2 - Obra 02");
+    await page.locator("#observacoesPassagem").fill("Retorno solicitado pela obra");
     const requisicaoPassagem = page.waitForRequest((requisicao) =>
       requisicao.url().includes("/api/passagens-extras") && requisicao.method() === "POST",
     );
@@ -343,7 +366,22 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     assert.equal(passagemSalva.funcionarioId, "passagem-teste");
     assert.equal(passagemSalva.origemObra, "REF-1 - Obra 01");
     assert.equal(passagemSalva.destinoObra, "REF-2 - Obra 02");
+    assert.equal(passagemSalva.observacoes, "Retorno solicitado pela obra");
     assert.match(passagemSalva.data, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(await page.locator("#obraOrigem").inputValue(), "");
+    assert.equal(await page.locator("#obraDestino").inputValue(), "");
+    assert.equal(await page.locator("#observacoesPassagem").inputValue(), "");
+    await page.getByRole("button", { name: "Editar passagem" }).click();
+    assert.equal(await page.locator("#obraOrigem").inputValue(), "REF-1 - Obra 01");
+    assert.equal(await page.locator("#obraDestino").inputValue(), "REF-2 - Obra 02");
+    await page.locator("#observacoesPassagem").fill("Observação atualizada");
+    const requisicaoEdicao = page.waitForRequest((requisicao) =>
+      requisicao.url().includes("/api/passagens-extras") && requisicao.method() === "PATCH",
+    );
+    await page.locator("#btnSalvarPassagem").click();
+    const passagemEditada = (await requisicaoEdicao).postDataJSON();
+    assert.equal(passagemEditada.passagemId, "passagem1");
+    assert.equal(passagemEditada.observacoes, "Observação atualizada");
 
     for (const largura of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });

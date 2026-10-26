@@ -2,6 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const { _internals } = require("../api/passagens-extras");
 
 test("valida datas reais e calcula o dia da semana no servidor", () => {
@@ -33,4 +34,22 @@ test("filtra o histórico de passagens pelo período solicitado", () => {
     _internals.listaPeriodo(valor, "2026-10-01", "2026-10-10").map((item) => item.id),
     ["b"],
   );
+});
+
+test("valida a senha derivada sem armazenar o texto original", () => {
+  const salt = Buffer.from("0123456789abcdef");
+  const funcionario = {
+    senhaSalt: salt.toString("base64"),
+    senhaHash: crypto.pbkdf2Sync("1234", salt, 120000, 32, "sha256").toString("base64"),
+    senhaIteracoes: 120000,
+  };
+  assert.equal(_internals.senhaValida("1234", funcionario), true);
+  assert.equal(_internals.senhaValida("9999", funcionario), false);
+  assert.equal(_internals.senhaValida("1234", {}), false);
+});
+
+test("aceita observações vazias e limita o tamanho", () => {
+  assert.equal(_internals.textoOpcional(""), "");
+  assert.equal(_internals.textoOpcional("  visita   adicional  "), "visita adicional");
+  assert.equal(_internals.textoOpcional("x".repeat(501)), null);
 });

@@ -87,6 +87,8 @@ const el = {
   funcionarioPassagemNome: document.getElementById("funcionarioPassagemNome"),
   funcionarioPassagemSobrenome: document.getElementById("funcionarioPassagemSobrenome"),
   funcionarioPassagemObra: document.getElementById("funcionarioPassagemObra"),
+  funcionarioPassagemSenha: document.getElementById("funcionarioPassagemSenha"),
+  ajudaFuncionarioPassagemSenha: document.getElementById("ajudaFuncionarioPassagemSenha"),
   btnSalvarFuncionarioPassagem: document.getElementById("btnSalvarFuncionarioPassagem"),
   btnCancelarFuncionarioPassagem: document.getElementById("btnCancelarFuncionarioPassagem"),
   btnNovoFuncionarioPassagem: document.getElementById("btnNovoFuncionarioPassagem"),
@@ -416,6 +418,7 @@ function renderizarPassagensAdmin(passagens) {
       <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Origem</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.origemObra || "—")}</p></div>
       <div class="hidden text-center text-sky-600 md:block"><i class="fa-solid fa-arrow-right"></i></div>
       <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Destino</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.destinoObra || "—")}</p></div>
+      ${passagem.observacoes ? `<div class="rounded-lg bg-slate-50 p-2 text-xs font-medium text-slate-600 md:col-span-4"><strong>Observações:</strong> ${escapeHtml(passagem.observacoes)}</div>` : ""}
     `;
     el.passagensAdminLista.appendChild(article);
   });
@@ -600,15 +603,20 @@ async function salvarFuncionarioPassagem(event) {
   const nome = normalizarTexto(el.funcionarioPassagemNome.value);
   const sobrenome = normalizarTexto(el.funcionarioPassagemSobrenome.value);
   const obra = normalizarTexto(el.funcionarioPassagemObra.value);
+  const senha = el.funcionarioPassagemSenha.value.normalize("NFKC");
+  const funcionarioAtual = funcionariosPassagens.find((item) => item.id === funcionarioPassagemEmEdicaoId);
 
   if (!nome) return alert("Informe o nome do funcionário.");
   if (!sobrenome) return alert("Informe o sobrenome do funcionário.");
   if (!obra) return alert("Informe a obra atual do funcionário.");
+  if (!senha && !funcionarioAtual?.senhaHash) return alert("Crie uma senha de acesso para o funcionário.");
+  if (senha && senha.length < 4) return alert("A senha deve ter pelo menos 4 caracteres.");
   if (funcionariosPassagens.some((funcionario) =>
     funcionario.id !== funcionarioPassagemEmEdicaoId && mesmoTexto(nomeCompletoFuncionario(funcionario), `${nome} ${sobrenome}`),
   )) return alert("Esse funcionário já está cadastrado para passagens extras.");
 
   const dados = { nome, sobrenome, obra, ativo: true };
+  if (senha) Object.assign(dados, await gerarCredencialPassagens(senha), { senha: null });
   if (funcionarioPassagemEmEdicaoId) {
     await database.ref(`${DB_FUNCIONARIOS_PASSAGENS}/${funcionarioPassagemEmEdicaoId}`).update({ ...dados, atualizadoEm: new Date().toISOString() });
   } else {
@@ -631,6 +639,10 @@ function editarFuncionarioPassagem(funcionario) {
   el.funcionarioPassagemNome.value = funcionario.nome || "";
   el.funcionarioPassagemSobrenome.value = funcionario.sobrenome || "";
   el.funcionarioPassagemObra.value = funcionario.obra || "";
+  el.funcionarioPassagemSenha.value = "";
+  el.ajudaFuncionarioPassagemSenha.textContent = funcionario.senhaHash
+    ? "Deixe em branco para manter a senha atual ou digite uma nova para substituí-la."
+    : "Este funcionário ainda não possui senha. Crie uma para liberar o acesso.";
   el.funcionarioPassagemFormTitulo.textContent = "Editar funcionário de passagens";
   el.btnSalvarFuncionarioPassagem.textContent = "Atualizar funcionário";
   el.btnCancelarFuncionarioPassagem.classList.remove("hidden");
@@ -651,7 +663,28 @@ function cancelarEdicaoFuncionarioPassagem(fechar = true) {
   el.funcionarioPassagemNome.value = "";
   el.funcionarioPassagemSobrenome.value = "";
   el.funcionarioPassagemObra.value = "";
+  el.funcionarioPassagemSenha.value = "";
+  el.ajudaFuncionarioPassagemSenha.textContent = "A senha será solicitada quando o funcionário entrar no módulo.";
   if (fechar) fecharModal(el.modalFuncionarioPassagem);
+}
+
+async function gerarCredencialPassagens(senha) {
+  const iteracoes = 120000;
+  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+  const chave = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(senha.normalize("NFKC")),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const hash = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations: iteracoes },
+    chave,
+    256,
+  );
+  const base64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+  return { senhaHash: base64(hash), senhaSalt: base64(saltBytes), senhaIteracoes: iteracoes };
 }
 
 async function salvarFuncionarioRompimento(event) {

@@ -8,6 +8,9 @@ let funcionarios = [];
 let obras = [];
 let opcoesObras = [];
 let funcionarioSelecionado = null;
+let funcionarioPendente = null;
+let senhaAcesso = "";
+let passagemEmEdicaoId = "";
 let dataSelecionada = hojeLocal();
 let mesVisivel = new Date(`${dataSelecionada}T12:00:00`);
 let passagensMes = [];
@@ -18,7 +21,9 @@ const el = Object.fromEntries([
   "funcionarioNome", "funcionarioObra", "mesAnterior", "proximoMes", "tituloMes",
   "calendario", "diaSemana", "dataSelecionada", "formPassagem", "obraOrigem",
   "obraDestino", "obrasSugestoes", "erroFormulario", "btnSalvarPassagem", "totalMes", "estadoPassagens",
-  "passagensLista",
+  "passagensLista", "observacoesPassagem", "btnCancelarEdicaoPassagem", "modalSenhaFuncionario",
+  "formSenhaFuncionario", "nomeSenhaFuncionario", "senhaFuncionario", "erroSenhaFuncionario",
+  "btnEntrarFuncionario", "btnCancelarSenha",
 ].map((id) => [id, document.getElementById(id)]));
 
 document.addEventListener("DOMContentLoaded", iniciar);
@@ -45,11 +50,19 @@ function registrarEventos() {
   el.calendario.addEventListener("click", (event) => {
     const botao = event.target.closest("button[data-data]");
     if (!botao) return;
+    if (passagemEmEdicaoId) return mostrarErro("Conclua ou cancele a edição antes de trocar a data.");
     dataSelecionada = botao.dataset.data;
     atualizarDataSelecionada();
     renderizarCalendario();
   });
   el.formPassagem.addEventListener("submit", salvarPassagem);
+  el.btnCancelarEdicaoPassagem.addEventListener("click", limparFormularioPassagem);
+  el.formSenhaFuncionario.addEventListener("submit", autenticarFuncionario);
+  el.btnCancelarSenha.addEventListener("click", fecharSenhaFuncionario);
+  el.passagensLista.addEventListener("click", (event) => {
+    const botao = event.target.closest("button[data-editar-passagem]");
+    if (botao) editarPassagem(botao.dataset.editarPassagem);
+  });
 }
 
 function carregarFuncionarios() {
@@ -89,14 +102,64 @@ function renderizarMensagemFuncionarios(mensagem) {
 }
 
 function selecionarFuncionario(id) {
-  funcionarioSelecionado = funcionarios.find((item) => item.id === id);
-  if (!funcionarioSelecionado) return;
+  funcionarioPendente = funcionarios.find((item) => item.id === id);
+  if (!funcionarioPendente) return;
+  el.nomeSenhaFuncionario.textContent = nomeCompleto(funcionarioPendente);
+  el.senhaFuncionario.value = "";
+  el.erroSenhaFuncionario.textContent = funcionarioPendente.senhaHash
+    ? ""
+    : "A senha ainda não foi cadastrada. Solicite ao administrador.";
+  el.erroSenhaFuncionario.classList.toggle("hidden", Boolean(funcionarioPendente.senhaHash));
+  el.senhaFuncionario.disabled = !funcionarioPendente.senhaHash;
+  el.btnEntrarFuncionario.disabled = !funcionarioPendente.senhaHash;
+  el.btnEntrarFuncionario.classList.toggle("opacity-60", !funcionarioPendente.senhaHash);
+  el.modalSenhaFuncionario.classList.remove("hidden");
+  el.modalSenhaFuncionario.classList.add("flex");
+  if (funcionarioPendente.senhaHash) requestAnimationFrame(() => el.senhaFuncionario.focus());
+}
+
+async function autenticarFuncionario(event) {
+  event.preventDefault();
+  if (!funcionarioPendente || !el.senhaFuncionario.value) return;
+  el.btnEntrarFuncionario.disabled = true;
+  el.btnEntrarFuncionario.classList.add("opacity-60");
+  try {
+    const resposta = await fetch("/api/passagens-extras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ acao: "autenticar", funcionarioId: funcionarioPendente.id, senha: el.senhaFuncionario.value }),
+    });
+    const resultado = await resposta.json().catch(() => null);
+    if (!resposta.ok || !resultado?.success) throw new Error("SENHA_INVALIDA");
+    senhaAcesso = el.senhaFuncionario.value;
+    funcionarioSelecionado = funcionarioPendente;
+    fecharSenhaFuncionario();
+    abrirPainelFuncionario();
+  } catch {
+    el.erroSenhaFuncionario.textContent = "Senha incorreta. Tente novamente.";
+    el.erroSenhaFuncionario.classList.remove("hidden");
+    el.senhaFuncionario.select();
+  } finally {
+    el.btnEntrarFuncionario.disabled = false;
+    el.btnEntrarFuncionario.classList.remove("opacity-60");
+  }
+}
+
+function fecharSenhaFuncionario() {
+  funcionarioPendente = null;
+  el.senhaFuncionario.value = "";
+  el.modalSenhaFuncionario.classList.add("hidden");
+  el.modalSenhaFuncionario.classList.remove("flex");
+}
+
+function abrirPainelFuncionario() {
   dataSelecionada = hojeLocal();
   mesVisivel = new Date(`${dataSelecionada}T12:00:00`);
   el.funcionarioNome.textContent = nomeCompleto(funcionarioSelecionado);
   el.funcionarioObra.textContent = `Obra: ${funcionarioSelecionado.obra || "Não informada"}`;
   el.selecaoFuncionario.classList.add("hidden");
   el.painelFuncionario.classList.remove("hidden");
+  limparFormularioPassagem();
   preencherObras();
   atualizarDataSelecionada();
   renderizarCalendario();
@@ -106,12 +169,15 @@ function selecionarFuncionario(id) {
 function voltarParaFuncionarios() {
   desassinarPassagens();
   funcionarioSelecionado = null;
+  senhaAcesso = "";
   passagensMes = [];
+  limparFormularioPassagem();
   el.painelFuncionario.classList.add("hidden");
   el.selecaoFuncionario.classList.remove("hidden");
 }
 
 function mudarMes(diferenca) {
+  if (passagemEmEdicaoId) return mostrarErro("Conclua ou cancele a edição antes de trocar o mês.");
   mesVisivel = new Date(mesVisivel.getFullYear(), mesVisivel.getMonth() + diferenca, 1, 12);
   dataSelecionada = isoLocal(new Date(mesVisivel.getFullYear(), mesVisivel.getMonth(), 1, 12));
   atualizarDataSelecionada();
@@ -165,10 +231,6 @@ function preencherObras() {
   });
   el.obraOrigem.value = opcoesObras.some((obra) => mesmoTexto(obra.nome, origemAnterior)) ? origemAnterior : "";
   el.obraDestino.value = opcoesObras.some((obra) => mesmoTexto(obra.nome, destinoAnterior)) ? destinoAnterior : "";
-  if (!origemAnterior && obraFuncionario) {
-    const obraAtual = opcoesObras.find((item) => mesmoTexto(item.nome, obraFuncionario) || mesmoTexto(item.nomeObra, obraFuncionario));
-    if (obraAtual) el.obraOrigem.value = obraAtual.nome;
-  }
 }
 
 async function salvarPassagem(event) {
@@ -184,20 +246,22 @@ async function salvarPassagem(event) {
   el.btnSalvarPassagem.classList.add("opacity-60");
   try {
     const resposta = await fetch("/api/passagens-extras", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      method: passagemEmEdicaoId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", "X-Passagens-Credencial": codificarCredencial(senhaAcesso) },
       body: JSON.stringify({
       funcionarioId: funcionarioSelecionado.id,
+      passagemId: passagemEmEdicaoId || undefined,
       data: dataSelecionada,
       origemObraId: origem.id,
       origemObra: origem.nome,
       destinoObraId: destino.id,
       destinoObra: destino.nome,
+      observacoes: el.observacoesPassagem.value.trim(),
       }),
     });
     const resultado = await resposta.json().catch(() => null);
     if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
-    el.obraDestino.value = "";
+    limparFormularioPassagem();
     await assinarPassagensMes();
   } catch {
     mostrarErro("Não foi possível salvar a passagem extra. Tente novamente.");
@@ -219,7 +283,7 @@ function assinarPassagensMes() {
     mes: chaveMes(isoLocal(mesVisivel)),
   });
   return fetch(`/api/passagens-extras?${parametros.toString()}`, {
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", "X-Passagens-Credencial": codificarCredencial(senhaAcesso) },
     signal: controladorAtual.signal,
   }).then(async (resposta) => {
     const resultado = await resposta.json().catch(() => null);
@@ -255,9 +319,52 @@ function renderizarPassagens() {
   passagensMes.forEach((passagem) => {
     const article = document.createElement("article");
     article.className = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm";
-    article.innerHTML = `<div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700"><i class="fa-solid fa-arrow-right-arrow-left"></i></span><div class="min-w-0 flex-1"><p class="text-[10px] font-black uppercase tracking-widest text-red-600">${escapeHtml(formatarDataCompleta(passagem.data))}</p><p class="mt-1 break-words text-sm font-bold text-slate-600">De <strong class="text-slate-900">${escapeHtml(passagem.origemObra)}</strong></p><p class="break-words text-sm font-bold text-slate-600">Para <strong class="text-slate-900">${escapeHtml(passagem.destinoObra)}</strong></p></div></div>`;
+    article.innerHTML = `<div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700"><i class="fa-solid fa-arrow-right-arrow-left"></i></span><div class="min-w-0 flex-1"><p class="text-[10px] font-black uppercase tracking-widest text-red-600">${escapeHtml(formatarDataCompleta(passagem.data))}</p><p class="mt-1 break-words text-sm font-bold text-slate-600">De <strong class="text-slate-900">${escapeHtml(passagem.origemObra)}</strong></p><p class="break-words text-sm font-bold text-slate-600">Para <strong class="text-slate-900">${escapeHtml(passagem.destinoObra)}</strong></p>${passagem.observacoes ? `<p class="mt-2 break-words rounded-lg bg-slate-50 p-2 text-xs font-medium text-slate-600"><strong>Observações:</strong> ${escapeHtml(passagem.observacoes)}</p>` : ""}</div><button type="button" data-editar-passagem="${escapeHtml(passagem.id)}" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Editar passagem"><i class="fa-solid fa-pen"></i></button></div>`;
     el.passagensLista.appendChild(article);
   });
+}
+
+function editarPassagem(id) {
+  const passagem = passagensMes.find((item) => item.id === id);
+  if (!passagem) return;
+  garantirOpcaoHistorica(passagem.origemObraId, passagem.origemObra);
+  garantirOpcaoHistorica(passagem.destinoObraId, passagem.destinoObra);
+  passagemEmEdicaoId = passagem.id;
+  dataSelecionada = passagem.data;
+  mesVisivel = dataIsoParaDate(passagem.data);
+  el.obraOrigem.value = passagem.origemObra || "";
+  el.obraDestino.value = passagem.destinoObra || "";
+  el.observacoesPassagem.value = passagem.observacoes || "";
+  el.btnSalvarPassagem.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i>Salvar alterações';
+  el.btnCancelarEdicaoPassagem.classList.remove("hidden");
+  atualizarDataSelecionada();
+  renderizarCalendario();
+  el.formPassagem.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function garantirOpcaoHistorica(id, nome) {
+  if (!id || !nome || opcoesObras.some((item) => mesmoTexto(item.nome, nome))) return;
+  opcoesObras.push({ id, nome, nomeObra: nome });
+  const option = document.createElement("option");
+  option.value = nome;
+  el.obrasSugestoes.appendChild(option);
+}
+
+function limparFormularioPassagem() {
+  passagemEmEdicaoId = "";
+  el.obraOrigem.value = "";
+  el.obraDestino.value = "";
+  el.observacoesPassagem.value = "";
+  el.btnSalvarPassagem.innerHTML = '<i class="fa-solid fa-plus mr-2"></i>Adicionar passagem extra';
+  el.btnCancelarEdicaoPassagem.classList.add("hidden");
+  ocultarErro();
+}
+
+function codificarCredencial(valor) {
+  const bytes = new TextEncoder().encode(valor);
+  let binario = "";
+  bytes.forEach((byte) => { binario += String.fromCharCode(byte); });
+  return btoa(binario);
 }
 
 function mostrarErro(mensagem) { el.erroFormulario.textContent = mensagem; el.erroFormulario.classList.remove("hidden"); }
