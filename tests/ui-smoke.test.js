@@ -75,6 +75,32 @@ async function prepararPagina(context) {
         ativo: true,
       },
     };
+    const funcionariosPassagens = {
+      "passagem-teste": {
+        nome: "Paulo",
+        sobrenome: "Santos",
+        obra: "Obra 01",
+        ativo: true,
+      },
+    };
+    const hoje = new Date();
+    const dataPassagem = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+    const mesPassagem = dataPassagem.slice(0, 7);
+    const passagens = {
+      [mesPassagem]: {
+        passagem1: {
+          funcionarioId: "passagem-teste",
+          funcionarioNome: "Paulo Santos",
+          data: dataPassagem,
+          diaSemana: "segunda-feira",
+          origemObraId: "obra-1",
+          origemObra: "REF-1 - Obra 01",
+          destinoObraId: "obra-2",
+          destinoObra: "REF-2 - Obra 02",
+          criadoEm: new Date().toISOString(),
+        },
+      },
+    };
     window.__dbActions = [];
     window.firebase = {
       apps: [],
@@ -89,8 +115,16 @@ async function prepararPagina(context) {
                   : caminho === "administracao/clientes" ? clientes
                     : caminho === "administracao/obras" ? obras
                       : caminho === "administracao/funcionariosRompimentos" ? funcionarios
+                        : caminho === "administracao/funcionariosPassagens" ? funcionariosPassagens
+                          : caminho === "passagensExtras/passagem-teste" ? passagens
+                            : caminho.startsWith("passagensExtras/passagem-teste/") ? passagens[caminho.split("/").at(-1)]
                         : null;
                 queueMicrotask(() => sucesso({ val: () => valor }));
+              },
+              off() {},
+              once: async () => {
+                const valor = caminho === "passagensExtras/passagem-teste" ? passagens : null;
+                return { val: () => valor };
               },
               push: async (valor) => { window.__dbActions.push({ tipo: "push", caminho, valor }); return {}; },
               update: async (valor) => { window.__dbActions.push({ tipo: "update", caminho, valor }); return {}; },
@@ -140,6 +174,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
 
     await page.goto(base);
     await assert.doesNotReject(() => page.getByRole("link", { name: /Rompimentos/i }).waitFor());
+    await assert.doesNotReject(() => page.getByRole("link", { name: /Passagens Extras/i }).waitFor());
     await page.getByRole("link", { name: /Ensaios/i }).first().click();
     await assert.doesNotReject(() => page.getByRole("link", { name: /Umidade de Areia/i }).waitFor());
     await assert.doesNotReject(() => page.getByRole("link", { name: /Conversor Técnico/i }).waitFor());
@@ -226,6 +261,40 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       [7, 90],
     );
 
+    await page.locator('[data-admin-view="funcionarios-passagens"]:visible').first().click();
+    await page.locator("#funcionariosPassagensLista").getByText("Paulo Santos").waitFor();
+    await page.getByRole("button", { name: "Editar funcionário de passagens" }).click();
+    await page.locator("#funcionarioPassagemObra").fill("Obra atualizada");
+    await page.locator("#btnSalvarFuncionarioPassagem").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "update" && acao.caminho === "administracao/funcionariosPassagens/passagem-teste"));
+    await page.locator("#btnNovoFuncionarioPassagem").click();
+    await page.locator("#funcionarioPassagemNome").fill("Ana");
+    await page.locator("#funcionarioPassagemSobrenome").fill("Souza");
+    await page.locator("#funcionarioPassagemObra").fill("Obra 02");
+    await page.locator("#btnSalvarFuncionarioPassagem").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/funcionariosPassagens"));
+
+    await page.locator('[data-admin-view="passagens"]:visible').first().click();
+    await page.locator("#filtroPassagemFuncionario").selectOption("passagem-teste");
+    await page.locator("#btnFiltrarPassagens").click();
+    await page.locator("#passagensAdminLista").getByText("REF-1 - Obra 01").waitFor();
+    assert.equal(await page.locator("#totalPassagensPeriodo").textContent(), "1");
+
+    await page.goto(`${base}/pages/passagens-extras.html`);
+    await page.getByRole("button", { name: /Selecionar Paulo Santos/i }).click();
+    await page.locator("#passagensLista").getByText("REF-1 - Obra 01").waitFor();
+    assert.equal(await page.locator("#totalMes").textContent(), "1");
+    await page.locator("#obraOrigem").selectOption("obra-1");
+    await page.locator("#obraDestino").selectOption("obra-2");
+    await page.locator("#btnSalvarPassagem").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho.startsWith("passagensExtras/passagem-teste/")));
+    const passagemSalva = await page.evaluate(() => window.__dbActions.find((acao) => acao.tipo === "push" && acao.caminho.startsWith("passagensExtras/passagem-teste/")).valor);
+    assert.equal(passagemSalva.funcionarioId, "passagem-teste");
+    assert.equal(passagemSalva.origemObra, "REF-1 - Obra 01");
+    assert.equal(passagemSalva.destinoObra, "REF-2 - Obra 02");
+    assert.match(passagemSalva.data, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(passagemSalva.diaSemana);
+
     for (const largura of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width: largura, height: 900 });
       await page.goto(`${base}/pages/administracao.html`);
@@ -240,7 +309,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       await page.getByText("398-5").waitFor();
       await page.getByText("Usi Beton - 20 MPa").waitFor();
       await page.locator("#avisoRompimentosAtrasados").waitFor({ state: "visible" });
-      assert.match(await page.locator("#avisoRompimentosTexto").textContent(), /Caso já tenha feito, favor desconsiderar este aviso/);
+      assert.match(await page.locator("#avisoRompimentosTexto").textContent(), /Caso já tenha feito, desconsiderar este aviso/);
       await page.locator("#btnFecharAvisoAtrasos").click();
       assert.equal(await page.locator("#avisoRompimentosAtrasados").isHidden(), true);
       await page.locator("#btnAlternarNotificacoes").click();
@@ -248,6 +317,14 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
       assert.match(await page.locator("#painelNotificacoes").textContent(), /rompimentos em atraso/i);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       assert.ok(overflow <= 1, `overflow horizontal em ${largura}px: ${overflow}px`);
+    }
+
+    for (const largura of [320, 390, 768, 1280]) {
+      await page.setViewportSize({ width: largura, height: 900 });
+      await page.goto(`${base}/pages/passagens-extras.html`);
+      await page.getByRole("button", { name: /Selecionar Paulo Santos/i }).click();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      assert.ok(overflow <= 1, `overflow horizontal nas passagens em ${largura}px: ${overflow}px`);
     }
 
     assert.deepEqual(errosPagina, []);

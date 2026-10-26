@@ -3,6 +3,8 @@ const ADMIN_ACCESS_KEY = "sgi_concrefuji_admin_autorizado";
 const DB_CLIENTES = "administracao/clientes";
 const DB_OBRAS = "administracao/obras";
 const DB_FUNCIONARIOS_ROMPIMENTOS = "administracao/funcionariosRompimentos";
+const DB_FUNCIONARIOS_PASSAGENS = "administracao/funcionariosPassagens";
+const DB_PASSAGENS_EXTRAS = "passagensExtras";
 const IDADES_PADRAO = [1, 3, 7, 14, 28, 56, 63];
 const ITENS_POR_PAGINA = 10;
 
@@ -16,9 +18,12 @@ let obraEmEdicaoId = "";
 let funcionariosRompimentos = [];
 let funcionariosRompimentosCarregados = false;
 let funcionarioEmEdicaoId = "";
+let funcionariosPassagens = [];
+let funcionariosPassagensCarregados = false;
+let funcionarioPassagemEmEdicaoId = "";
 let referenciasDisponiveis = new Set(["CSP", "VSP", "GSF"]);
 let idadesDisponiveis = new Set(IDADES_PADRAO);
-const paginas = { clientes: 1, obras: 1, funcionarios: 1 };
+const paginas = { clientes: 1, obras: 1, funcionarios: 1, funcionariosPassagens: 1 };
 
 const el = {
   accessModal: document.getElementById("accessModal"),
@@ -76,6 +81,31 @@ const el = {
   paginacaoFuncionarios: document.getElementById("paginacaoFuncionarios"),
   btnNovoFuncionario: document.getElementById("btnNovoFuncionario"),
   modalFuncionario: document.getElementById("modalFuncionario"),
+
+  funcionariosPassagensTotal: document.getElementById("funcionariosPassagensTotal"),
+  formFuncionarioPassagem: document.getElementById("formFuncionarioPassagem"),
+  funcionarioPassagemFormTitulo: document.getElementById("funcionarioPassagemFormTitulo"),
+  funcionarioPassagemNome: document.getElementById("funcionarioPassagemNome"),
+  funcionarioPassagemSobrenome: document.getElementById("funcionarioPassagemSobrenome"),
+  funcionarioPassagemObra: document.getElementById("funcionarioPassagemObra"),
+  btnSalvarFuncionarioPassagem: document.getElementById("btnSalvarFuncionarioPassagem"),
+  btnCancelarFuncionarioPassagem: document.getElementById("btnCancelarFuncionarioPassagem"),
+  btnNovoFuncionarioPassagem: document.getElementById("btnNovoFuncionarioPassagem"),
+  funcionariosPassagensLista: document.getElementById("funcionariosPassagensLista"),
+  buscaFuncionariosPassagens: document.getElementById("buscaFuncionariosPassagens"),
+  paginacaoFuncionariosPassagens: document.getElementById("paginacaoFuncionariosPassagens"),
+  modalFuncionarioPassagem: document.getElementById("modalFuncionarioPassagem"),
+
+  passagensTotal: document.getElementById("passagensTotal"),
+  filtroPassagemFuncionario: document.getElementById("filtroPassagemFuncionario"),
+  filtroPassagemInicio: document.getElementById("filtroPassagemInicio"),
+  filtroPassagemFim: document.getElementById("filtroPassagemFim"),
+  btnFiltrarPassagens: document.getElementById("btnFiltrarPassagens"),
+  erroFiltroPassagens: document.getElementById("erroFiltroPassagens"),
+  totalPassagensPeriodo: document.getElementById("totalPassagensPeriodo"),
+  nomeFuncionarioPassagens: document.getElementById("nomeFuncionarioPassagens"),
+  estadoPassagensAdmin: document.getElementById("estadoPassagensAdmin"),
+  passagensAdminLista: document.getElementById("passagensAdminLista"),
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -128,6 +158,7 @@ function registrarEventos() {
   el.clientesLista.addEventListener("click", tratarCliqueCliente);
   el.obrasLista.addEventListener("click", tratarCliqueObra);
   el.formFuncionarioRompimento.addEventListener("submit", salvarFuncionarioRompimento);
+  el.formFuncionarioPassagem.addEventListener("submit", salvarFuncionarioPassagem);
   el.btnCancelarFuncionario.addEventListener("click", cancelarEdicaoFuncionario);
   el.btnAdicionarReferencia.addEventListener("click", adicionarReferencia);
   el.btnAdicionarIdade.addEventListener("click", adicionarIdade);
@@ -144,6 +175,7 @@ function registrarEventos() {
     }
   });
   el.funcionariosRompimentosLista.addEventListener("click", tratarCliqueFuncionario);
+  el.funcionariosPassagensLista.addEventListener("click", tratarCliqueFuncionarioPassagem);
   document.querySelectorAll("[data-admin-view], [data-open-view]").forEach((botao) => {
     botao.addEventListener("click", () => mostrarArea(botao.dataset.adminView || botao.dataset.openView));
   });
@@ -170,12 +202,21 @@ function registrarEventos() {
     cancelarEdicaoFuncionario(false);
     abrirModal(el.modalFuncionario, el.funcionarioNome);
   });
+  el.btnNovoFuncionarioPassagem.addEventListener("click", () => {
+    cancelarEdicaoFuncionarioPassagem(false);
+    abrirModal(el.modalFuncionarioPassagem, el.funcionarioPassagemNome);
+  });
+  el.btnCancelarFuncionarioPassagem.addEventListener("click", cancelarEdicaoFuncionarioPassagem);
   configurarBusca(el.buscaClientes, "clientes", renderizarClientes);
   configurarBusca(el.buscaObras, "obras", renderizarObras);
   configurarBusca(el.buscaFuncionarios, "funcionarios", renderizarFuncionariosRompimentos);
+  configurarBusca(el.buscaFuncionariosPassagens, "funcionariosPassagens", renderizarFuncionariosPassagens);
   configurarPaginacao(el.paginacaoClientes, "clientes", renderizarClientes);
   configurarPaginacao(el.paginacaoObras, "obras", renderizarObras);
   configurarPaginacao(el.paginacaoFuncionarios, "funcionarios", renderizarFuncionariosRompimentos);
+  configurarPaginacao(el.paginacaoFuncionariosPassagens, "funcionariosPassagens", renderizarFuncionariosPassagens);
+  el.btnFiltrarPassagens.addEventListener("click", consultarPassagensExtras);
+  definirPeriodoPadraoPassagens();
   renderizarIdades();
   renderizarReferencias();
 }
@@ -271,20 +312,142 @@ function iniciarFirebase() {
     },
     tratarErroFirebase,
   );
+
+  database.ref(DB_FUNCIONARIOS_PASSAGENS).on(
+    "value",
+    (snapshot) => {
+      funcionariosPassagens = objetoParaLista(snapshot.val());
+      funcionariosPassagensCarregados = true;
+      renderizarTudo();
+    },
+    tratarErroFirebase,
+  );
 }
 
 function renderizarTudo() {
   preencherClientes();
+  preencherFuncionariosPassagens();
   renderizarClientes();
   renderizarObras();
   renderizarFuncionariosRompimentos();
+  renderizarFuncionariosPassagens();
   el.clientesTotal.textContent = clientesCarregados ? clientes.length : "—";
   el.obrasTotal.textContent = obrasCarregadas ? obras.length : "—";
   el.funcionariosTotal.textContent = funcionariosRompimentosCarregados ? funcionariosRompimentos.length : "—";
+  el.funcionariosPassagensTotal.textContent = funcionariosPassagensCarregados ? funcionariosPassagens.length : "—";
 
-  if (clientesCarregados && obrasCarregadas && funcionariosRompimentosCarregados) {
+  if (clientesCarregados && obrasCarregadas && funcionariosRompimentosCarregados && funcionariosPassagensCarregados) {
     atualizarStatus("Sincronizado", "bg-emerald-400");
   }
+}
+
+function definirPeriodoPadraoPassagens() {
+  const hoje = new Date();
+  el.filtroPassagemInicio.value = isoDataLocal(new Date(hoje.getFullYear(), hoje.getMonth(), 1, 12));
+  el.filtroPassagemFim.value = isoDataLocal(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 12));
+}
+
+function preencherFuncionariosPassagens() {
+  const valorAnterior = el.filtroPassagemFuncionario.value;
+  el.filtroPassagemFuncionario.innerHTML = '<option value="">Selecione o funcionário</option>';
+  funcionariosPassagens.filter((funcionario) => funcionario.ativo !== false).forEach((funcionario) => {
+    const option = document.createElement("option");
+    option.value = funcionario.id;
+    option.textContent = nomeCompletoFuncionario(funcionario);
+    el.filtroPassagemFuncionario.appendChild(option);
+  });
+  if (funcionariosPassagens.some((funcionario) => funcionario.id === valorAnterior)) {
+    el.filtroPassagemFuncionario.value = valorAnterior;
+  }
+}
+
+async function consultarPassagensExtras() {
+  const funcionarioId = el.filtroPassagemFuncionario.value;
+  const inicio = el.filtroPassagemInicio.value;
+  const fim = el.filtroPassagemFim.value;
+  const funcionario = funcionariosPassagens.find((item) => item.id === funcionarioId);
+
+  ocultarErroFiltroPassagens();
+  if (!funcionario) return mostrarErroFiltroPassagens("Selecione um funcionário.");
+  if (!inicio || !fim) return mostrarErroFiltroPassagens("Informe a data inicial e a data final.");
+  if (inicio > fim) return mostrarErroFiltroPassagens("A data inicial não pode ser posterior à data final.");
+
+  el.btnFiltrarPassagens.disabled = true;
+  el.btnFiltrarPassagens.classList.add("opacity-60");
+  el.estadoPassagensAdmin.classList.remove("hidden");
+  el.estadoPassagensAdmin.textContent = "Carregando passagens...";
+  el.passagensAdminLista.innerHTML = "";
+  el.nomeFuncionarioPassagens.textContent = nomeCompletoFuncionario(funcionario);
+
+  try {
+    const snapshot = await database.ref(`${DB_PASSAGENS_EXTRAS}/${funcionarioId}`).once("value");
+    const passagens = extrairPassagens(snapshot.val())
+      .filter((passagem) => passagem.data >= inicio && passagem.data <= fim)
+      .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")) || String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+    renderizarPassagensAdmin(passagens);
+  } catch {
+    el.totalPassagensPeriodo.textContent = "0";
+    el.passagensTotal.textContent = "0";
+    el.estadoPassagensAdmin.classList.remove("hidden");
+    el.estadoPassagensAdmin.textContent = "Não foi possível carregar as passagens. Tente novamente.";
+  } finally {
+    el.btnFiltrarPassagens.disabled = false;
+    el.btnFiltrarPassagens.classList.remove("opacity-60");
+  }
+}
+
+function extrairPassagens(valor) {
+  return Object.entries(valor || {}).flatMap(([mes, registros]) =>
+    Object.entries(registros || {}).map(([id, passagem]) => ({ id, mes, ...passagem })),
+  );
+}
+
+function renderizarPassagensAdmin(passagens) {
+  el.totalPassagensPeriodo.textContent = String(passagens.length);
+  el.passagensTotal.textContent = String(passagens.length);
+  el.passagensAdminLista.innerHTML = "";
+  if (!passagens.length) {
+    el.estadoPassagensAdmin.classList.remove("hidden");
+    el.estadoPassagensAdmin.textContent = "Nenhuma passagem extra encontrada no período selecionado.";
+    return;
+  }
+
+  el.estadoPassagensAdmin.classList.add("hidden");
+  passagens.forEach((passagem) => {
+    const article = document.createElement("article");
+    article.className = "grid gap-2 p-4 md:grid-cols-[130px_minmax(0,1fr)_40px_minmax(0,1fr)] md:items-center md:gap-3";
+    article.innerHTML = `
+      <div><span class="text-[10px] font-black uppercase text-red-600 md:hidden">Quando</span><p class="text-sm font-black text-slate-900">${escapeHtml(formatarDataPassagem(passagem.data))}</p><p class="text-xs font-bold capitalize text-slate-400">${escapeHtml(passagem.diaSemana || diaSemanaPassagem(passagem.data))}</p></div>
+      <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Origem</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.origemObra || "—")}</p></div>
+      <div class="hidden text-center text-sky-600 md:block"><i class="fa-solid fa-arrow-right"></i></div>
+      <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Destino</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.destinoObra || "—")}</p></div>
+    `;
+    el.passagensAdminLista.appendChild(article);
+  });
+}
+
+function mostrarErroFiltroPassagens(mensagem) {
+  el.erroFiltroPassagens.textContent = mensagem;
+  el.erroFiltroPassagens.classList.remove("hidden");
+}
+
+function ocultarErroFiltroPassagens() {
+  el.erroFiltroPassagens.textContent = "";
+  el.erroFiltroPassagens.classList.add("hidden");
+}
+
+function formatarDataPassagem(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ""))) return "Data não informada";
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(`${iso}T12:00:00`));
+}
+
+function diaSemanaPassagem(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ""))) return "";
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(new Date(`${iso}T12:00:00`));
+}
+
+function isoDataLocal(data) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 }
 
 function renderizarReferencias(selecionadas = []) {
@@ -403,6 +566,99 @@ function renderizarFuncionariosRompimentos() {
   renderizarPaginacao(el.paginacaoFuncionarios, pagina, "funcionarios");
 }
 
+function renderizarFuncionariosPassagens() {
+  const termo = normalizarBusca(el.buscaFuncionariosPassagens.value);
+  const filtrados = funcionariosPassagens.filter((funcionario) =>
+    normalizarBusca(`${nomeCompletoFuncionario(funcionario)} ${funcionario.obra || ""}`).includes(termo),
+  );
+  const pagina = paginar(filtrados, "funcionariosPassagens");
+
+  if (!filtrados.length) {
+    el.funcionariosPassagensLista.innerHTML = vazio(termo ? "Nenhum funcionário encontrado." : "Nenhum funcionário cadastrado para passagens extras.");
+    renderizarPaginacao(el.paginacaoFuncionariosPassagens, pagina, "funcionariosPassagens");
+    return;
+  }
+
+  el.funcionariosPassagensLista.innerHTML = "";
+  pagina.itens.forEach((funcionario) => {
+    const article = document.createElement("article");
+    article.className = "p-4";
+    article.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h4 class="break-words font-black text-slate-900">${escapeHtml(nomeCompletoFuncionario(funcionario))}</h4>
+          <p class="break-words text-xs font-bold text-slate-500">Obra atual: ${escapeHtml(funcionario.obra || "Não informada")}</p>
+        </div>
+        <div class="flex shrink-0 items-center gap-1">
+          <button type="button" data-action="editar-funcionario-passagem" data-id="${funcionario.id}" class="h-11 w-11 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-700" aria-label="Editar funcionário de passagens"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" data-action="excluir-funcionario-passagem" data-id="${funcionario.id}" class="h-11 w-11 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-700" aria-label="Excluir funcionário de passagens"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `;
+    el.funcionariosPassagensLista.appendChild(article);
+  });
+  renderizarPaginacao(el.paginacaoFuncionariosPassagens, pagina, "funcionariosPassagens");
+}
+
+async function salvarFuncionarioPassagem(event) {
+  event.preventDefault();
+  const nome = normalizarTexto(el.funcionarioPassagemNome.value);
+  const sobrenome = normalizarTexto(el.funcionarioPassagemSobrenome.value);
+  const obra = normalizarTexto(el.funcionarioPassagemObra.value);
+
+  if (!nome) return alert("Informe o nome do funcionário.");
+  if (!sobrenome) return alert("Informe o sobrenome do funcionário.");
+  if (!obra) return alert("Informe a obra atual do funcionário.");
+  if (funcionariosPassagens.some((funcionario) =>
+    funcionario.id !== funcionarioPassagemEmEdicaoId && mesmoTexto(nomeCompletoFuncionario(funcionario), `${nome} ${sobrenome}`),
+  )) return alert("Esse funcionário já está cadastrado para passagens extras.");
+
+  const dados = { nome, sobrenome, obra, ativo: true };
+  if (funcionarioPassagemEmEdicaoId) {
+    await database.ref(`${DB_FUNCIONARIOS_PASSAGENS}/${funcionarioPassagemEmEdicaoId}`).update({ ...dados, atualizadoEm: new Date().toISOString() });
+  } else {
+    await database.ref(DB_FUNCIONARIOS_PASSAGENS).push({ ...dados, criadoEm: new Date().toISOString() });
+  }
+  cancelarEdicaoFuncionarioPassagem();
+}
+
+function tratarCliqueFuncionarioPassagem(event) {
+  const botao = event.target.closest("button[data-action]");
+  if (!botao) return;
+  const funcionario = funcionariosPassagens.find((item) => item.id === botao.dataset.id);
+  if (!funcionario) return;
+  if (botao.dataset.action === "editar-funcionario-passagem") editarFuncionarioPassagem(funcionario);
+  if (botao.dataset.action === "excluir-funcionario-passagem") excluirFuncionarioPassagem(funcionario);
+}
+
+function editarFuncionarioPassagem(funcionario) {
+  funcionarioPassagemEmEdicaoId = funcionario.id;
+  el.funcionarioPassagemNome.value = funcionario.nome || "";
+  el.funcionarioPassagemSobrenome.value = funcionario.sobrenome || "";
+  el.funcionarioPassagemObra.value = funcionario.obra || "";
+  el.funcionarioPassagemFormTitulo.textContent = "Editar funcionário de passagens";
+  el.btnSalvarFuncionarioPassagem.textContent = "Atualizar funcionário";
+  el.btnCancelarFuncionarioPassagem.classList.remove("hidden");
+  abrirModal(el.modalFuncionarioPassagem, el.funcionarioPassagemNome);
+}
+
+async function excluirFuncionarioPassagem(funcionario) {
+  if (!confirm(`Excluir o funcionário "${nomeCompletoFuncionario(funcionario)}" da lista de passagens extras? O histórico de passagens será preservado.`)) return;
+  await database.ref(`${DB_FUNCIONARIOS_PASSAGENS}/${funcionario.id}`).remove();
+  if (funcionarioPassagemEmEdicaoId === funcionario.id) cancelarEdicaoFuncionarioPassagem();
+}
+
+function cancelarEdicaoFuncionarioPassagem(fechar = true) {
+  funcionarioPassagemEmEdicaoId = "";
+  el.funcionarioPassagemFormTitulo.textContent = "Novo funcionário de passagens";
+  el.btnSalvarFuncionarioPassagem.textContent = "Cadastrar funcionário";
+  el.btnCancelarFuncionarioPassagem.classList.add("hidden");
+  el.funcionarioPassagemNome.value = "";
+  el.funcionarioPassagemSobrenome.value = "";
+  el.funcionarioPassagemObra.value = "";
+  if (fechar) fecharModal(el.modalFuncionarioPassagem);
+}
+
 async function salvarFuncionarioRompimento(event) {
   event.preventDefault();
   const nome = normalizarTexto(el.funcionarioNome.value);
@@ -416,7 +672,6 @@ async function salvarFuncionarioRompimento(event) {
   if (!obra) return alert("Informe a obra do funcionário.");
   if (!referencias.length) return alert("Selecione ao menos uma referência.");
   if (!idades.length) return alert("Selecione ao menos uma idade.");
-
   const duplicado = funcionariosRompimentos.some((funcionario) =>
     funcionario.id !== funcionarioEmEdicaoId &&
     mesmoTexto(nomeCompletoFuncionario(funcionario), `${nome} ${sobrenome}`),
