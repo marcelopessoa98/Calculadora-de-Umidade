@@ -86,6 +86,23 @@ async function prepararPagina(context) {
         senhaIteracoes: 120000,
       },
     };
+    const agora = Date.now();
+    const avisos = {
+      "aviso-ativo": {
+        mensagem: "Reunião geral hoje às 16h.",
+        inicioEm: new Date(agora - 60 * 60 * 1000).toISOString(),
+        fimEm: new Date(agora + 60 * 60 * 1000).toISOString(),
+        criadoEm: new Date(agora - 60 * 60 * 1000).toISOString(),
+        ativo: true,
+      },
+      "aviso-encerrado": {
+        mensagem: "Este aviso já encerrou.",
+        inicioEm: new Date(agora - 48 * 60 * 60 * 1000).toISOString(),
+        fimEm: new Date(agora - 24 * 60 * 60 * 1000).toISOString(),
+        criadoEm: new Date(agora - 48 * 60 * 60 * 1000).toISOString(),
+        ativo: true,
+      },
+    };
     const hoje = new Date();
     const dataPassagem = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
     const mesPassagem = dataPassagem.slice(0, 7);
@@ -119,6 +136,7 @@ async function prepararPagina(context) {
                     : caminho === "administracao/obras" ? obras
                       : caminho === "administracao/funcionariosRompimentos" ? funcionarios
                         : caminho === "administracao/funcionariosPassagens" ? funcionariosPassagens
+                          : caminho === "administracao/avisos" ? avisos
                           : caminho === "passagensExtras/passagem-teste" ? passagens
                             : caminho.startsWith("passagensExtras/passagem-teste/") ? passagens[caminho.split("/").at(-1)]
                         : null;
@@ -236,6 +254,10 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     const base = `http://127.0.0.1:${porta}`;
 
     await page.goto(base);
+    await page.locator("#modalAvisos").waitFor({ state: "visible" });
+    assert.match(await page.locator("#listaAvisosAtivos").textContent(), /Reunião geral hoje às 16h/);
+    assert.doesNotMatch(await page.locator("#listaAvisosAtivos").textContent(), /já encerrou/);
+    await page.locator("#btnFecharAvisos").click();
     await assert.doesNotReject(() => page.getByRole("link", { name: /Rompimentos/i }).waitFor());
     await assert.doesNotReject(() => page.getByRole("link", { name: /Passagens Extras/i }).waitFor());
     await page.getByRole("link", { name: /Ensaios/i }).first().click();
@@ -343,6 +365,21 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.locator("#btnFiltrarPassagens").click();
     await page.locator("#passagensAdminLista").getByText("REF-1 - Obra 01").waitFor();
     assert.equal(await page.locator("#totalPassagensPeriodo").textContent(), "1");
+
+    await page.locator('[data-admin-view="avisos"]:visible').first().click();
+    await page.getByText("Reunião geral hoje às 16h.").waitFor();
+    assert.match(await page.locator("#avisosLista").textContent(), /Em exibição/);
+    await page.getByRole("button", { name: "Editar aviso" }).first().click();
+    await page.locator("#avisoMensagem").fill("Reunião alterada para 17h.");
+    await page.locator("#btnSalvarAviso").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "update" && acao.caminho === "administracao/avisos/aviso-ativo"));
+    await page.locator("#btnNovoAviso").click();
+    await page.locator("#avisoMensagem").fill("Novo comunicado de teste.");
+    await page.locator("#btnSalvarAviso").click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/avisos"));
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Excluir aviso" }).first().click();
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "remove" && acao.caminho.startsWith("administracao/avisos/")));
 
     await page.goto(`${base}/pages/passagens-extras.html`);
     await page.getByRole("button", { name: /Selecionar Paulo Santos/i }).click();

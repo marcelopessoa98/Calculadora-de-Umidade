@@ -4,6 +4,7 @@ const DB_CLIENTES = "administracao/clientes";
 const DB_OBRAS = "administracao/obras";
 const DB_FUNCIONARIOS_ROMPIMENTOS = "administracao/funcionariosRompimentos";
 const DB_FUNCIONARIOS_PASSAGENS = "administracao/funcionariosPassagens";
+const DB_AVISOS = "administracao/avisos";
 const IDADES_PADRAO = [1, 3, 7, 14, 28, 56, 63];
 const ITENS_POR_PAGINA = 10;
 
@@ -20,6 +21,9 @@ let funcionarioEmEdicaoId = "";
 let funcionariosPassagens = [];
 let funcionariosPassagensCarregados = false;
 let funcionarioPassagemEmEdicaoId = "";
+let avisos = [];
+let avisosCarregados = false;
+let avisoEmEdicaoId = "";
 let referenciasDisponiveis = new Set(["CSP", "VSP", "GSF"]);
 let idadesDisponiveis = new Set(IDADES_PADRAO);
 const paginas = { clientes: 1, obras: 1, funcionarios: 1, funcionariosPassagens: 1 };
@@ -107,6 +111,19 @@ const el = {
   nomeFuncionarioPassagens: document.getElementById("nomeFuncionarioPassagens"),
   estadoPassagensAdmin: document.getElementById("estadoPassagensAdmin"),
   passagensAdminLista: document.getElementById("passagensAdminLista"),
+
+  avisosTotal: document.getElementById("avisosTotal"),
+  avisosLista: document.getElementById("avisosLista"),
+  btnNovoAviso: document.getElementById("btnNovoAviso"),
+  modalAviso: document.getElementById("modalAviso"),
+  formAviso: document.getElementById("formAviso"),
+  avisoFormTitulo: document.getElementById("avisoFormTitulo"),
+  avisoMensagem: document.getElementById("avisoMensagem"),
+  avisoInicio: document.getElementById("avisoInicio"),
+  avisoFim: document.getElementById("avisoFim"),
+  erroAviso: document.getElementById("erroAviso"),
+  btnSalvarAviso: document.getElementById("btnSalvarAviso"),
+  btnCancelarAviso: document.getElementById("btnCancelarAviso"),
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -160,6 +177,7 @@ function registrarEventos() {
   el.obrasLista.addEventListener("click", tratarCliqueObra);
   el.formFuncionarioRompimento.addEventListener("submit", salvarFuncionarioRompimento);
   el.formFuncionarioPassagem.addEventListener("submit", salvarFuncionarioPassagem);
+  el.formAviso.addEventListener("submit", salvarAviso);
   el.btnCancelarFuncionario.addEventListener("click", cancelarEdicaoFuncionario);
   el.btnAdicionarReferencia.addEventListener("click", adicionarReferencia);
   el.btnAdicionarIdade.addEventListener("click", adicionarIdade);
@@ -208,6 +226,13 @@ function registrarEventos() {
     abrirModal(el.modalFuncionarioPassagem, el.funcionarioPassagemNome);
   });
   el.btnCancelarFuncionarioPassagem.addEventListener("click", cancelarEdicaoFuncionarioPassagem);
+  el.btnNovoAviso.addEventListener("click", () => {
+    cancelarEdicaoAviso(false);
+    preencherPeriodoPadraoAviso();
+    abrirModal(el.modalAviso, el.avisoMensagem);
+  });
+  el.btnCancelarAviso.addEventListener("click", cancelarEdicaoAviso);
+  el.avisosLista.addEventListener("click", tratarCliqueAviso);
   configurarBusca(el.buscaClientes, "clientes", renderizarClientes);
   configurarBusca(el.buscaObras, "obras", renderizarObras);
   configurarBusca(el.buscaFuncionarios, "funcionarios", renderizarFuncionariosRompimentos);
@@ -323,6 +348,16 @@ function iniciarFirebase() {
     },
     tratarErroFirebase,
   );
+
+  database.ref(DB_AVISOS).on(
+    "value",
+    (snapshot) => {
+      avisos = objetoParaLista(snapshot.val()).sort((a, b) => Date.parse(b.criadoEm || b.inicioEm) - Date.parse(a.criadoEm || a.inicioEm));
+      avisosCarregados = true;
+      renderizarTudo();
+    },
+    tratarErroFirebase,
+  );
 }
 
 function renderizarTudo() {
@@ -332,12 +367,14 @@ function renderizarTudo() {
   renderizarObras();
   renderizarFuncionariosRompimentos();
   renderizarFuncionariosPassagens();
+  renderizarAvisos();
   el.clientesTotal.textContent = clientesCarregados ? clientes.length : "—";
   el.obrasTotal.textContent = obrasCarregadas ? obras.length : "—";
   el.funcionariosTotal.textContent = funcionariosRompimentosCarregados ? funcionariosRompimentos.length : "—";
   el.funcionariosPassagensTotal.textContent = funcionariosPassagensCarregados ? funcionariosPassagens.length : "—";
+  el.avisosTotal.textContent = avisosCarregados ? avisos.length : "—";
 
-  if (clientesCarregados && obrasCarregadas && funcionariosRompimentosCarregados && funcionariosPassagensCarregados) {
+  if (clientesCarregados && obrasCarregadas && funcionariosRompimentosCarregados && funcionariosPassagensCarregados && avisosCarregados) {
     atualizarStatus("Sincronizado", "bg-emerald-400");
   }
 }
@@ -789,6 +826,142 @@ function preencherClientes() {
   if (clientes.some((cliente) => cliente.id === valorAnterior)) {
     el.obraCliente.value = valorAnterior;
   }
+}
+
+function preencherPeriodoPadraoAviso() {
+  const inicio = new Date();
+  inicio.setSeconds(0, 0);
+  const fim = new Date(inicio);
+  fim.setDate(fim.getDate() + 1);
+  el.avisoInicio.value = dataHoraParaInput(inicio);
+  el.avisoFim.value = dataHoraParaInput(fim);
+}
+
+function dataHoraParaInput(valor) {
+  const data = valor instanceof Date ? valor : new Date(valor);
+  if (Number.isNaN(data.getTime())) return "";
+  const pad = (numero) => String(numero).padStart(2, "0");
+  return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}T${pad(data.getHours())}:${pad(data.getMinutes())}`;
+}
+
+function formatarDataHora(valor) {
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return "Data inválida";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(data);
+}
+
+function situacaoAviso(aviso) {
+  const agora = Date.now();
+  const inicio = Date.parse(aviso.inicioEm);
+  const fim = Date.parse(aviso.fimEm);
+  if (!Number.isFinite(inicio) || !Number.isFinite(fim)) return { texto: "Inválido", classe: "bg-red-50 text-red-700" };
+  if (agora < inicio) return { texto: "Agendado", classe: "bg-sky-50 text-sky-700" };
+  if (agora > fim) return { texto: "Encerrado", classe: "bg-slate-100 text-slate-500" };
+  return { texto: "Em exibição", classe: "bg-emerald-50 text-emerald-700" };
+}
+
+function renderizarAvisos() {
+  if (!avisosCarregados) return;
+  if (!avisos.length) {
+    el.avisosLista.innerHTML = vazio("Nenhum aviso cadastrado.");
+    return;
+  }
+
+  el.avisosLista.innerHTML = avisos.map((aviso) => {
+    const situacao = situacaoAviso(aviso);
+    return `
+      <article class="p-5">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0 flex-1">
+            <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${situacao.classe}">${situacao.texto}</span>
+            <p class="mt-3 whitespace-pre-line break-words text-sm font-bold leading-relaxed text-slate-800">${escapeHtml(aviso.mensagem)}</p>
+            <p class="mt-3 text-xs font-semibold text-slate-400"><i class="fa-regular fa-calendar mr-1"></i>${escapeHtml(formatarDataHora(aviso.inicioEm))} até ${escapeHtml(formatarDataHora(aviso.fimEm))}</p>
+          </div>
+          <div class="flex shrink-0 items-center gap-1">
+            <button type="button" data-action="editar-aviso" data-id="${aviso.id}" class="h-9 w-9 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-700" aria-label="Editar aviso"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" data-action="excluir-aviso" data-id="${aviso.id}" class="h-9 w-9 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-700" aria-label="Excluir aviso"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+async function salvarAviso(event) {
+  event.preventDefault();
+  el.erroAviso.classList.add("hidden");
+  const mensagem = String(el.avisoMensagem.value || "").trim();
+  const inicio = new Date(el.avisoInicio.value);
+  const fim = new Date(el.avisoFim.value);
+
+  if (!mensagem) return exibirErroAviso("Informe a mensagem do aviso.");
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return exibirErroAviso("Informe o início e o fim da exibição.");
+  if (fim <= inicio) return exibirErroAviso("O fim da exibição deve ser posterior ao início.");
+
+  const dados = {
+    mensagem,
+    inicioEm: inicio.toISOString(),
+    fimEm: fim.toISOString(),
+    ativo: true,
+  };
+
+  try {
+    if (avisoEmEdicaoId) {
+      await database.ref(`${DB_AVISOS}/${avisoEmEdicaoId}`).update({ ...dados, atualizadoEm: new Date().toISOString() });
+    } else {
+      await database.ref(DB_AVISOS).push({ ...dados, criadoEm: new Date().toISOString() });
+    }
+    cancelarEdicaoAviso();
+  } catch {
+    exibirErroAviso("Não foi possível salvar o aviso. Tente novamente.");
+  }
+}
+
+function exibirErroAviso(mensagem) {
+  el.erroAviso.textContent = mensagem;
+  el.erroAviso.classList.remove("hidden");
+}
+
+function tratarCliqueAviso(event) {
+  const botao = event.target.closest("button[data-action]");
+  if (!botao) return;
+  const aviso = avisos.find((item) => item.id === botao.dataset.id);
+  if (!aviso) return;
+  if (botao.dataset.action === "editar-aviso") editarAviso(aviso);
+  if (botao.dataset.action === "excluir-aviso") excluirAviso(aviso);
+}
+
+function editarAviso(aviso) {
+  avisoEmEdicaoId = aviso.id;
+  el.avisoMensagem.value = aviso.mensagem || "";
+  el.avisoInicio.value = dataHoraParaInput(aviso.inicioEm);
+  el.avisoFim.value = dataHoraParaInput(aviso.fimEm);
+  el.avisoFormTitulo.textContent = "Editar aviso";
+  el.btnSalvarAviso.textContent = "Atualizar aviso";
+  el.btnCancelarAviso.classList.remove("hidden");
+  el.erroAviso.classList.add("hidden");
+  abrirModal(el.modalAviso, el.avisoMensagem);
+}
+
+async function excluirAviso(aviso) {
+  if (!confirm("Excluir este aviso? Ele deixará de aparecer imediatamente no menu.")) return;
+  await database.ref(`${DB_AVISOS}/${aviso.id}`).remove();
+  if (avisoEmEdicaoId === aviso.id) cancelarEdicaoAviso();
+}
+
+function cancelarEdicaoAviso(fechar = true) {
+  avisoEmEdicaoId = "";
+  el.avisoFormTitulo.textContent = "Novo aviso";
+  el.btnSalvarAviso.textContent = "Cadastrar aviso";
+  el.btnCancelarAviso.classList.add("hidden");
+  el.avisoMensagem.value = "";
+  el.avisoInicio.value = "";
+  el.avisoFim.value = "";
+  el.erroAviso.classList.add("hidden");
+  if (fechar) fecharModal(el.modalAviso);
 }
 
 function renderizarClientes() {

@@ -40,6 +40,38 @@
   <body
     class="min-h-screen pb-24 font-sans text-slate-900 selection:bg-red-100"
   >
+    <div
+      id="modalAvisos"
+      class="fixed inset-0 z-[100] hidden items-center justify-center overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tituloAvisos"
+    >
+      <div class="my-auto w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div class="bg-gradient-to-r from-red-700 to-red-600 px-6 py-5 text-white">
+          <div class="flex items-center gap-3">
+            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+              <i class="fa-solid fa-bullhorn text-xl"></i>
+            </span>
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[.22em] text-white/70">Comunicado</p>
+              <h2 id="tituloAvisos" class="text-xl font-black">Aviso importante</h2>
+            </div>
+          </div>
+        </div>
+        <div id="listaAvisosAtivos" class="max-h-[60vh] divide-y divide-slate-100 overflow-y-auto px-6"></div>
+        <div class="border-t border-slate-100 p-5">
+          <button
+            id="btnFecharAvisos"
+            type="button"
+            class="w-full rounded-xl bg-slate-950 py-3 text-xs font-black uppercase tracking-widest text-white transition active:scale-[.98]"
+          >
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+
     <header
       class="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 backdrop-blur-md"
     >
@@ -210,6 +242,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
     <script src="js/firebase-config.js"></script>
+    <script src="js/avisos.js"></script>
     <script src="/js/pwa.js"></script>
   </body>
 </html>
