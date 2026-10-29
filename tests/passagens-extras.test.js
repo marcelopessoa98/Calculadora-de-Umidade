@@ -28,12 +28,11 @@ test("aceita somente obras cadastradas ou a obra atual do funcionário", () => {
 test("filtra o histórico de passagens pelo período solicitado", () => {
   const valor = {
     "2026-09": { a: { data: "2026-09-30" } },
-    "2026-10": { b: { data: "2026-10-01" }, c: { data: "2026-10-20" } },
+    "2026-10": { b: { data: "2026-10-01", observacoes: "Visita adicional" }, c: { data: "2026-10-20" } },
   };
-  assert.deepEqual(
-    _internals.listaPeriodo(valor, "2026-10-01", "2026-10-10").map((item) => item.id),
-    ["b"],
-  );
+  const resultado = _internals.listaPeriodo(valor, "2026-10-01", "2026-10-10");
+  assert.deepEqual(resultado.map((item) => item.id), ["b"]);
+  assert.equal(resultado[0].observacoes, "Visita adicional");
 });
 
 test("valida a senha derivada sem armazenar o texto original", () => {

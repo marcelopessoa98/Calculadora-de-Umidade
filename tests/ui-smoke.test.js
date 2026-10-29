@@ -117,6 +117,7 @@ async function prepararPagina(context) {
           origemObra: "REF-1 - Obra 01",
           destinoObraId: "obra-2",
           destinoObra: "REF-2 - Obra 02",
+          observacoes: "Retorno solicitado pelo encarregado da obra.",
           criadoEm: new Date().toISOString(),
         },
       },
@@ -226,6 +227,7 @@ async function prepararPagina(context) {
           origemObra: "REF-1 - Obra 01",
           destinoObraId: "obra-2",
           destinoObra: "REF-2 - Obra 02",
+          observacoes: "Retorno solicitado pelo encarregado da obra.",
           criadoEm: new Date().toISOString(),
         }],
       }),
@@ -361,10 +363,16 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/funcionariosPassagens"));
 
     await page.locator('[data-admin-view="passagens"]:visible').first().click();
-    await page.locator("#filtroPassagemFuncionario").selectOption("passagem-teste");
+    await page.locator("#filtroPassagemFuncionario").fill("Paulo Santos");
     await page.locator("#btnFiltrarPassagens").click();
     await page.locator("#passagensAdminLista").getByText("REF-1 - Obra 01").waitFor();
+    await page.locator("#passagensAdminLista").getByText("Retorno solicitado pelo encarregado da obra.").waitFor();
     assert.equal(await page.locator("#totalPassagensPeriodo").textContent(), "1");
+    const downloadPdf = page.waitForEvent("download");
+    await page.locator("#btnExportarPassagensPdf").click();
+    const pdf = await downloadPdf;
+    assert.match(pdf.suggestedFilename(), /^passagens-extras-paulo-santos-\d{4}-\d{2}-\d{2}-a-\d{4}-\d{2}-\d{2}\.pdf$/);
+    assert.ok((await fs.stat(await pdf.path())).size > 1000);
 
     await page.locator('[data-admin-view="avisos"]:visible').first().click();
     await page.getByText("Reunião geral hoje às 16h.").waitFor();

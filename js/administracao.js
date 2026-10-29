@@ -24,6 +24,8 @@ let funcionarioPassagemEmEdicaoId = "";
 let avisos = [];
 let avisosCarregados = false;
 let avisoEmEdicaoId = "";
+let passagensRelatorio = [];
+let consultaPassagensRelatorio = null;
 let referenciasDisponiveis = new Set(["CSP", "VSP", "GSF"]);
 let idadesDisponiveis = new Set(IDADES_PADRAO);
 const paginas = { clientes: 1, obras: 1, funcionarios: 1, funcionariosPassagens: 1 };
@@ -103,9 +105,12 @@ const el = {
 
   passagensTotal: document.getElementById("passagensTotal"),
   filtroPassagemFuncionario: document.getElementById("filtroPassagemFuncionario"),
+  filtroPassagemFuncionariosOpcoes: document.getElementById("filtroPassagemFuncionariosOpcoes"),
+  filtroPassagemFuncionarioId: document.getElementById("filtroPassagemFuncionarioId"),
   filtroPassagemInicio: document.getElementById("filtroPassagemInicio"),
   filtroPassagemFim: document.getElementById("filtroPassagemFim"),
   btnFiltrarPassagens: document.getElementById("btnFiltrarPassagens"),
+  btnExportarPassagensPdf: document.getElementById("btnExportarPassagensPdf"),
   erroFiltroPassagens: document.getElementById("erroFiltroPassagens"),
   totalPassagensPeriodo: document.getElementById("totalPassagensPeriodo"),
   nomeFuncionarioPassagens: document.getElementById("nomeFuncionarioPassagens"),
@@ -242,6 +247,18 @@ function registrarEventos() {
   configurarPaginacao(el.paginacaoFuncionarios, "funcionarios", renderizarFuncionariosRompimentos);
   configurarPaginacao(el.paginacaoFuncionariosPassagens, "funcionariosPassagens", renderizarFuncionariosPassagens);
   el.btnFiltrarPassagens.addEventListener("click", consultarPassagensExtras);
+  el.btnExportarPassagensPdf.addEventListener("click", exportarPassagensPdf);
+  el.filtroPassagemFuncionario.addEventListener("input", () => {
+    el.filtroPassagemFuncionarioId.value = resolverFuncionarioFiltro()?.id || "";
+    invalidarRelatorioPassagens();
+  });
+  el.filtroPassagemFuncionario.addEventListener("change", () => {
+    const funcionario = resolverFuncionarioFiltro();
+    el.filtroPassagemFuncionarioId.value = funcionario?.id || "";
+    if (funcionario) el.filtroPassagemFuncionario.value = rotuloFuncionarioFiltro(funcionario);
+  });
+  el.filtroPassagemInicio.addEventListener("change", invalidarRelatorioPassagens);
+  el.filtroPassagemFim.addEventListener("change", invalidarRelatorioPassagens);
   definirPeriodoPadraoPassagens();
   renderizarIdades();
   renderizarReferencias();
@@ -386,29 +403,55 @@ function definirPeriodoPadraoPassagens() {
 }
 
 function preencherFuncionariosPassagens() {
-  const valorAnterior = el.filtroPassagemFuncionario.value;
-  el.filtroPassagemFuncionario.innerHTML = '<option value="">Selecione o funcionário</option>';
+  const idAnterior = el.filtroPassagemFuncionarioId.value;
+  el.filtroPassagemFuncionariosOpcoes.innerHTML = "";
   funcionariosPassagens.filter((funcionario) => funcionario.ativo !== false).forEach((funcionario) => {
     const option = document.createElement("option");
-    option.value = funcionario.id;
-    option.textContent = nomeCompletoFuncionario(funcionario);
-    el.filtroPassagemFuncionario.appendChild(option);
+    option.value = rotuloFuncionarioFiltro(funcionario);
+    el.filtroPassagemFuncionariosOpcoes.appendChild(option);
   });
-  if (funcionariosPassagens.some((funcionario) => funcionario.id === valorAnterior)) {
-    el.filtroPassagemFuncionario.value = valorAnterior;
+  const funcionarioAnterior = funcionariosPassagens.find((funcionario) => funcionario.id === idAnterior && funcionario.ativo !== false);
+  if (funcionarioAnterior) {
+    el.filtroPassagemFuncionario.value = rotuloFuncionarioFiltro(funcionarioAnterior);
   }
 }
 
+function rotuloFuncionarioFiltro(funcionario) {
+  const nome = nomeCompletoFuncionario(funcionario);
+  return funcionario.obra ? `${nome} - ${funcionario.obra}` : nome;
+}
+
+function resolverFuncionarioFiltro() {
+  const termo = normalizarBusca(el.filtroPassagemFuncionario.value);
+  if (!termo) return null;
+  const ativos = funcionariosPassagens.filter((funcionario) => funcionario.ativo !== false);
+  const exato = ativos.find((funcionario) =>
+    normalizarBusca(rotuloFuncionarioFiltro(funcionario)) === termo || normalizarBusca(nomeCompletoFuncionario(funcionario)) === termo,
+  );
+  if (exato) return exato;
+  const encontrados = ativos.filter((funcionario) => normalizarBusca(rotuloFuncionarioFiltro(funcionario)).includes(termo));
+  return encontrados.length === 1 ? encontrados[0] : null;
+}
+
+function invalidarRelatorioPassagens() {
+  passagensRelatorio = [];
+  consultaPassagensRelatorio = null;
+  el.btnExportarPassagensPdf.classList.add("hidden");
+}
+
 async function consultarPassagensExtras() {
-  const funcionarioId = el.filtroPassagemFuncionario.value;
+  const funcionario = resolverFuncionarioFiltro();
+  const funcionarioId = funcionario?.id || "";
   const inicio = el.filtroPassagemInicio.value;
   const fim = el.filtroPassagemFim.value;
-  const funcionario = funcionariosPassagens.find((item) => item.id === funcionarioId);
 
   ocultarErroFiltroPassagens();
-  if (!funcionario) return mostrarErroFiltroPassagens("Selecione um funcionário.");
+  invalidarRelatorioPassagens();
+  if (!funcionario) return mostrarErroFiltroPassagens("Digite e selecione um funcionário da lista.");
   if (!inicio || !fim) return mostrarErroFiltroPassagens("Informe a data inicial e a data final.");
   if (inicio > fim) return mostrarErroFiltroPassagens("A data inicial não pode ser posterior à data final.");
+  el.filtroPassagemFuncionarioId.value = funcionario.id;
+  el.filtroPassagemFuncionario.value = rotuloFuncionarioFiltro(funcionario);
 
   el.btnFiltrarPassagens.disabled = true;
   el.btnFiltrarPassagens.classList.add("opacity-60");
@@ -424,8 +467,12 @@ async function consultarPassagensExtras() {
     if (!resposta.ok || !resultado?.success) throw new Error("FALHA_PUBLICA");
     const passagens = (resultado.passagens || [])
       .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")) || String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+    passagensRelatorio = passagens;
+    consultaPassagensRelatorio = { funcionario, inicio, fim };
     renderizarPassagensAdmin(passagens);
+    el.btnExportarPassagensPdf.classList.toggle("hidden", !passagens.length);
   } catch {
+    invalidarRelatorioPassagens();
     el.totalPassagensPeriodo.textContent = "0";
     el.passagensTotal.textContent = "0";
     el.estadoPassagensAdmin.classList.remove("hidden");
@@ -455,10 +502,179 @@ function renderizarPassagensAdmin(passagens) {
       <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Origem</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.origemObra || "—")}</p></div>
       <div class="hidden text-center text-sky-600 md:block"><i class="fa-solid fa-arrow-right"></i></div>
       <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Destino</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.destinoObra || "—")}</p></div>
-      ${passagem.observacoes ? `<div class="rounded-lg bg-slate-50 p-2 text-xs font-medium text-slate-600 md:col-span-4"><strong>Observações:</strong> ${escapeHtml(passagem.observacoes)}</div>` : ""}
+      <div class="rounded-xl border border-amber-100 bg-amber-50/70 p-3 md:col-span-4">
+        <p class="text-[10px] font-black uppercase tracking-wider text-amber-700"><i class="fa-solid fa-note-sticky mr-1"></i>Observações do funcionário</p>
+        <p class="mt-1 whitespace-pre-line break-words text-sm font-semibold text-slate-700">${escapeHtml(passagem.observacoes || "Sem observações informadas.")}</p>
+      </div>
     `;
     el.passagensAdminLista.appendChild(article);
   });
+}
+
+async function exportarPassagensPdf() {
+  if (!consultaPassagensRelatorio || !passagensRelatorio.length) {
+    return mostrarErroFiltroPassagens("Consulte um período com passagens antes de exportar o PDF.");
+  }
+  const JsPdf = window.jspdf?.jsPDF;
+  if (!JsPdf) return mostrarErroFiltroPassagens("Não foi possível preparar o PDF. Recarregue a página e tente novamente.");
+
+  ocultarErroFiltroPassagens();
+  el.btnExportarPassagensPdf.disabled = true;
+  el.btnExportarPassagensPdf.classList.add("opacity-60");
+  const textoOriginal = el.btnExportarPassagensPdf.innerHTML;
+  el.btnExportarPassagensPdf.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Gerando PDF';
+
+  try {
+    const { funcionario, inicio, fim } = consultaPassagensRelatorio;
+    const doc = new JsPdf({ orientation: "landscape", unit: "mm", format: "a4" });
+    if (typeof doc.autoTable !== "function") throw new Error("AUTOTABLE_INDISPONIVEL");
+    const logo = await carregarImagemRelatorio("../assets/logo.png");
+    const nomeFuncionario = nomeCompletoFuncionario(funcionario);
+    const geradoEm = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date());
+    const linhas = passagensRelatorio.map((passagem) => [
+      formatarDataPassagem(passagem.data),
+      passagem.diaSemana || diaSemanaPassagem(passagem.data),
+      passagem.origemObra || "Não informado",
+      passagem.destinoObra || "Não informado",
+      passagem.observacoes || "Sem observações informadas.",
+    ].map(textoPdf));
+
+    doc.setProperties({
+      title: `Relatorio de passagens extras - ${nomeFuncionario}`,
+      subject: `Passagens extras de ${formatarDataPassagem(inicio)} a ${formatarDataPassagem(fim)}`,
+      author: "SGI ConcreFuji",
+      creator: "SGI ConcreFuji",
+    });
+
+    doc.autoTable({
+      startY: 55,
+      margin: { top: 27, right: 12, bottom: 18, left: 12 },
+      head: [["Data", "Dia da semana", "Origem", "Destino", "Observações"]],
+      body: linhas,
+      theme: "grid",
+      rowPageBreak: "avoid",
+      styles: {
+        font: "helvetica",
+        fontSize: 8,
+        cellPadding: 2.6,
+        lineColor: [226, 232, 240],
+        lineWidth: 0.2,
+        textColor: [51, 65, 85],
+        valign: "middle",
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [185, 28, 28],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "left",
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 25, fontStyle: "bold" },
+        1: { cellWidth: 31 },
+        2: { cellWidth: 58 },
+        3: { cellWidth: 58 },
+        4: { cellWidth: 95 },
+      },
+      didDrawPage(data) {
+        desenharCabecalhoRelatorio(doc, data.pageNumber, {
+          logo,
+          nomeFuncionario,
+          obra: funcionario.obra || "Não informada",
+          inicio,
+          fim,
+          total: passagensRelatorio.length,
+          geradoEm,
+        });
+      },
+    });
+
+    const totalPaginas = doc.getNumberOfPages();
+    for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+      doc.setPage(pagina);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(12, 194, 285, 194);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text("SGI ConcreFuji - Relatório administrativo para arquivo do RH", 12, 199);
+      doc.text(`Página ${pagina} de ${totalPaginas}`, 285, 199, { align: "right" });
+    }
+
+    const nomeArquivo = textoPdf(nomeFuncionario)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .toLocaleLowerCase("pt-BR");
+    doc.save(`passagens-extras-${nomeArquivo}-${inicio}-a-${fim}.pdf`);
+  } catch {
+    mostrarErroFiltroPassagens("Não foi possível gerar o PDF. Tente novamente.");
+  } finally {
+    el.btnExportarPassagensPdf.disabled = false;
+    el.btnExportarPassagensPdf.classList.remove("opacity-60");
+    el.btnExportarPassagensPdf.innerHTML = textoOriginal;
+  }
+}
+
+function desenharCabecalhoRelatorio(doc, pagina, dados) {
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  if (pagina === 1) {
+    if (dados.logo) doc.addImage(dados.logo, "PNG", 12, 8, 47, 13.5);
+    doc.setFontSize(16);
+    doc.text("RELATÓRIO DE PASSAGENS EXTRAS", 67, 14);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Emitido em ${textoPdf(dados.geradoEm)}`, 67, 20);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Funcionário: ${textoPdf(dados.nomeFuncionario)}`, 12, 31);
+    doc.text(`Obra atual: ${textoPdf(dados.obra)}`, 12, 38);
+    doc.text(`Período: ${formatarDataPassagem(dados.inicio)} a ${formatarDataPassagem(dados.fim)}`, 12, 45);
+
+    doc.setFillColor(254, 242, 242);
+    doc.setDrawColor(254, 202, 202);
+    doc.roundedRect(245, 28, 40, 18, 2, 2, "FD");
+    doc.setFontSize(7);
+    doc.setTextColor(153, 27, 27);
+    doc.text("TOTAL DE PASSAGENS", 265, 34, { align: "center" });
+    doc.setFontSize(15);
+    doc.text(String(dados.total), 265, 42, { align: "center" });
+    doc.setDrawColor(185, 28, 28);
+    doc.setLineWidth(0.8);
+    doc.line(12, 50, 285, 50);
+    return;
+  }
+
+  doc.setFontSize(10);
+  doc.text(`Passagens extras - ${textoPdf(dados.nomeFuncionario)}`, 12, 14);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${formatarDataPassagem(dados.inicio)} a ${formatarDataPassagem(dados.fim)}`, 285, 14, { align: "right" });
+  doc.setDrawColor(185, 28, 28);
+  doc.setLineWidth(0.6);
+  doc.line(12, 20, 285, 20);
+}
+
+function carregarImagemRelatorio(caminho) {
+  return new Promise((resolve) => {
+    const imagem = new Image();
+    imagem.onload = () => resolve(imagem);
+    imagem.onerror = () => resolve(null);
+    imagem.src = caminho;
+  });
+}
+
+function textoPdf(valor) {
+  return String(valor || "")
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/\u00a0/g, " ");
 }
 
 function mostrarErroFiltroPassagens(mensagem) {
