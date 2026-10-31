@@ -25,6 +25,7 @@ let funcionarioPassagemEmEdicaoId = "";
 let avisos = [];
 let avisosCarregados = false;
 let avisoEmEdicaoId = "";
+let avisoImagemDataUrl = "";
 let passagensRelatorio = [];
 let consultaPassagensRelatorio = null;
 let referenciasDisponiveis = new Set(["CSP", "VSP", "GSF"]);
@@ -125,6 +126,10 @@ const el = {
   formAviso: document.getElementById("formAviso"),
   avisoFormTitulo: document.getElementById("avisoFormTitulo"),
   avisoMensagem: document.getElementById("avisoMensagem"),
+  avisoImagem: document.getElementById("avisoImagem"),
+  avisoImagemPreview: document.getElementById("avisoImagemPreview"),
+  avisoImagemPreviewImg: document.getElementById("avisoImagemPreviewImg"),
+  btnRemoverImagemAviso: document.getElementById("btnRemoverImagemAviso"),
   avisoInicio: document.getElementById("avisoInicio"),
   avisoFim: document.getElementById("avisoFim"),
   erroAviso: document.getElementById("erroAviso"),
@@ -240,6 +245,8 @@ function registrarEventos() {
     abrirModal(el.modalAviso, el.avisoMensagem);
   });
   el.btnCancelarAviso.addEventListener("click", cancelarEdicaoAviso);
+  el.avisoImagem.addEventListener("change", selecionarImagemAviso);
+  el.btnRemoverImagemAviso.addEventListener("click", removerImagemAviso);
   el.avisosLista.addEventListener("click", tratarCliqueAviso);
   configurarBusca(el.buscaClientes, "clientes", renderizarClientes);
   configurarBusca(el.buscaObras, "obras", renderizarObras);
@@ -1132,6 +1139,80 @@ function situacaoAviso(aviso) {
   return { texto: "Em exibição", classe: "bg-emerald-50 text-emerald-700" };
 }
 
+function imagemAvisoValida(valor) {
+  return /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(valor || ""));
+}
+
+function atualizarPreviewImagemAviso() {
+  const visivel = imagemAvisoValida(avisoImagemDataUrl);
+  el.avisoImagemPreview.classList.toggle("hidden", !visivel);
+  el.avisoImagemPreviewImg.src = visivel ? avisoImagemDataUrl : "";
+}
+
+function removerImagemAviso() {
+  avisoImagemDataUrl = "";
+  el.avisoImagem.value = "";
+  atualizarPreviewImagemAviso();
+  el.erroAviso.classList.add("hidden");
+}
+
+async function selecionarImagemAviso() {
+  const arquivo = el.avisoImagem.files?.[0];
+  if (!arquivo) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(arquivo.type)) {
+    removerImagemAviso();
+    return exibirErroAviso("Selecione uma imagem JPEG, PNG ou WebP.");
+  }
+  if (arquivo.size > 8 * 1024 * 1024) {
+    removerImagemAviso();
+    return exibirErroAviso("A imagem deve ter no máximo 8 MB.");
+  }
+
+  el.btnSalvarAviso.disabled = true;
+  el.btnSalvarAviso.classList.add("opacity-60");
+  el.erroAviso.classList.add("hidden");
+  try {
+    avisoImagemDataUrl = await otimizarImagemAviso(arquivo);
+    atualizarPreviewImagemAviso();
+  } catch {
+    removerImagemAviso();
+    exibirErroAviso("Não foi possível preparar a imagem. Tente usar outro arquivo.");
+  } finally {
+    el.btnSalvarAviso.disabled = false;
+    el.btnSalvarAviso.classList.remove("opacity-60");
+  }
+}
+
+async function otimizarImagemAviso(arquivo) {
+  const url = URL.createObjectURL(arquivo);
+  try {
+    const imagem = await new Promise((resolve, reject) => {
+      const elemento = new Image();
+      elemento.onload = () => resolve(elemento);
+      elemento.onerror = reject;
+      elemento.src = url;
+    });
+    let limite = 1600;
+    let qualidade = 0.86;
+    let resultado = "";
+    for (let tentativa = 0; tentativa < 7; tentativa += 1) {
+      const escala = Math.min(1, limite / Math.max(imagem.naturalWidth, imagem.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(imagem.naturalWidth * escala));
+      canvas.height = Math.max(1, Math.round(imagem.naturalHeight * escala));
+      canvas.getContext("2d").drawImage(imagem, 0, 0, canvas.width, canvas.height);
+      resultado = canvas.toDataURL("image/webp", qualidade);
+      if (resultado.length <= 1_200_000) return resultado;
+      if (qualidade > 0.58) qualidade -= 0.1;
+      else limite = Math.round(limite * 0.78);
+    }
+    if (resultado.length <= 1_500_000) return resultado;
+    throw new Error("IMAGEM_MUITO_GRANDE");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function renderizarAvisos() {
   if (!avisosCarregados) return;
   if (!avisos.length) {
@@ -1146,7 +1227,8 @@ function renderizarAvisos() {
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div class="min-w-0 flex-1">
             <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${situacao.classe}">${situacao.texto}</span>
-            <p class="mt-3 whitespace-pre-line break-words text-sm font-bold leading-relaxed text-slate-800">${escapeHtml(aviso.mensagem)}</p>
+            ${imagemAvisoValida(aviso.imagemDataUrl) ? `<img src="${aviso.imagemDataUrl}" alt="Imagem do aviso" class="mt-3 max-h-64 w-full rounded-xl bg-slate-100 object-contain" />` : ""}
+            ${aviso.mensagem ? `<p class="mt-3 whitespace-pre-line break-words text-sm font-bold leading-relaxed text-slate-800">${escapeHtml(aviso.mensagem)}</p>` : ""}
             <p class="mt-3 text-xs font-semibold text-slate-400"><i class="fa-regular fa-calendar mr-1"></i>${escapeHtml(formatarDataHora(aviso.inicioEm))} até ${escapeHtml(formatarDataHora(aviso.fimEm))}</p>
           </div>
           <div class="flex shrink-0 items-center gap-1">
@@ -1166,12 +1248,13 @@ async function salvarAviso(event) {
   const inicio = new Date(el.avisoInicio.value);
   const fim = new Date(el.avisoFim.value);
 
-  if (!mensagem) return exibirErroAviso("Informe a mensagem do aviso.");
+  if (!mensagem && !imagemAvisoValida(avisoImagemDataUrl)) return exibirErroAviso("Informe uma mensagem ou selecione uma imagem.");
   if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return exibirErroAviso("Informe o início e o fim da exibição.");
   if (fim <= inicio) return exibirErroAviso("O fim da exibição deve ser posterior ao início.");
 
   const dados = {
     mensagem,
+    imagemDataUrl: imagemAvisoValida(avisoImagemDataUrl) ? avisoImagemDataUrl : null,
     inicioEm: inicio.toISOString(),
     fimEm: fim.toISOString(),
     ativo: true,
@@ -1206,6 +1289,9 @@ function tratarCliqueAviso(event) {
 function editarAviso(aviso) {
   avisoEmEdicaoId = aviso.id;
   el.avisoMensagem.value = aviso.mensagem || "";
+  avisoImagemDataUrl = imagemAvisoValida(aviso.imagemDataUrl) ? aviso.imagemDataUrl : "";
+  el.avisoImagem.value = "";
+  atualizarPreviewImagemAviso();
   el.avisoInicio.value = dataHoraParaInput(aviso.inicioEm);
   el.avisoFim.value = dataHoraParaInput(aviso.fimEm);
   el.avisoFormTitulo.textContent = "Editar aviso";
@@ -1227,6 +1313,9 @@ function cancelarEdicaoAviso(fechar = true) {
   el.btnSalvarAviso.textContent = "Cadastrar aviso";
   el.btnCancelarAviso.classList.add("hidden");
   el.avisoMensagem.value = "";
+  avisoImagemDataUrl = "";
+  el.avisoImagem.value = "";
+  atualizarPreviewImagemAviso();
   el.avisoInicio.value = "";
   el.avisoFim.value = "";
   el.erroAviso.classList.add("hidden");

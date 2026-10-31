@@ -90,6 +90,7 @@ async function prepararPagina(context) {
     const avisos = {
       "aviso-ativo": {
         mensagem: "Reunião geral hoje às 16h.",
+        imagemDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==",
         inicioEm: new Date(agora - 60 * 60 * 1000).toISOString(),
         fimEm: new Date(agora + 60 * 60 * 1000).toISOString(),
         criadoEm: new Date(agora - 60 * 60 * 1000).toISOString(),
@@ -262,6 +263,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.goto(base);
     await page.locator("#modalAvisos").waitFor({ state: "visible" });
     assert.match(await page.locator("#listaAvisosAtivos").textContent(), /Reunião geral hoje às 16h/);
+    assert.equal(await page.locator("#listaAvisosAtivos img[alt='Imagem do aviso']").isVisible(), true);
     assert.doesNotMatch(await page.locator("#listaAvisosAtivos").textContent(), /já encerrou/);
     await page.locator("#btnFecharAvisos").click();
     await assert.doesNotReject(() => page.getByRole("link", { name: /Rompimentos/i }).waitFor());
@@ -392,6 +394,7 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
 
     await page.locator('[data-admin-view="avisos"]:visible').first().click();
     await page.getByText("Reunião geral hoje às 16h.").waitFor();
+    assert.equal(await page.locator("#avisosLista img[alt='Imagem do aviso']").first().isVisible(), true);
     assert.match(await page.locator("#avisosLista").textContent(), /Em exibição/);
     await page.getByRole("button", { name: "Editar aviso" }).first().click();
     await page.locator("#avisoMensagem").fill("Reunião alterada para 17h.");
@@ -399,8 +402,14 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "update" && acao.caminho === "administracao/avisos/aviso-ativo"));
     await page.locator("#btnNovoAviso").click();
     await page.locator("#avisoMensagem").fill("Novo comunicado de teste.");
+    await page.locator("#avisoImagem").setInputFiles(path.join(RAIZ, "assets", "logo.png"));
+    await page.locator("#avisoImagemPreview").waitFor({ state: "visible" });
     await page.locator("#btnSalvarAviso").click();
-    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/avisos"));
+    await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "push" && acao.caminho === "administracao/avisos" && acao.valor.mensagem === "Novo comunicado de teste."));
+    assert.match(
+      await page.evaluate(() => window.__dbActions.find((acao) => acao.tipo === "push" && acao.caminho === "administracao/avisos" && acao.valor.mensagem === "Novo comunicado de teste.").valor.imagemDataUrl),
+      /^data:image\/(?:webp|png);base64,/,
+    );
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Excluir aviso" }).first().click();
     await page.waitForFunction(() => window.__dbActions.some((acao) => acao.tipo === "remove" && acao.caminho.startsWith("administracao/avisos/")));

@@ -38,6 +38,10 @@
       .sort((a, b) => Date.parse(b.inicioEm) - Date.parse(a.inicioEm));
   }
 
+  function imagemAvisoValida(valor) {
+    return /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(valor || ""));
+  }
+
   function exibirAvisos(avisos) {
     if (!avisos.length) {
       fecharModal();
@@ -45,7 +49,10 @@
       return;
     }
 
-    const assinatura = avisos.map((aviso) => [aviso.id, aviso.mensagem, aviso.inicioEm, aviso.fimEm].join(":")).join("|");
+    const assinatura = avisos.map((aviso) => {
+      const imagem = String(aviso.imagemDataUrl || "");
+      return [aviso.id, aviso.mensagem, imagem.length, imagem.slice(-64), aviso.inicioEm, aviso.fimEm].join(":");
+    }).join("|");
     if (assinatura === avisosDispensados) {
       modal.classList.add("hidden");
       modal.classList.remove("flex");
@@ -56,7 +63,8 @@
     avisosExibidos = assinatura;
     lista.innerHTML = avisos.map((aviso) => `
       <article class="py-5">
-        <p class="whitespace-pre-line break-words text-base font-semibold leading-relaxed text-slate-800">${escapeHtml(aviso.mensagem)}</p>
+        ${imagemAvisoValida(aviso.imagemDataUrl) ? `<img src="${aviso.imagemDataUrl}" alt="Imagem do aviso" class="max-h-[55vh] w-full rounded-2xl bg-slate-100 object-contain" />` : ""}
+        ${aviso.mensagem ? `<p class="${imagemAvisoValida(aviso.imagemDataUrl) ? "mt-4 " : ""}whitespace-pre-line break-words text-base font-semibold leading-relaxed text-slate-800">${escapeHtml(aviso.mensagem)}</p>` : ""}
       </article>
     `).join("");
     modal.classList.remove("hidden");
