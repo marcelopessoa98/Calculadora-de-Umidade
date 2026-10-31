@@ -7,6 +7,7 @@ const { FIREBASE_DATABASE_URL } = require("../server/rompimentos/config");
 const DB_FUNCIONARIOS = "administracao/funcionariosPassagens";
 const DB_OBRAS = "administracao/obras";
 const DB_PASSAGENS = "passagensExtras";
+const ADMIN_PASSWORD = "Fujita010474";
 const MENSAGEM_ERRO = "Não foi possível processar as passagens extras. Tente novamente.";
 
 function responder(res, status, corpo) {
@@ -41,6 +42,18 @@ function credencialRequisicao(req) {
     return Buffer.from(String(cabecalho), "base64").toString("utf8").normalize("NFKC");
   } catch {
     return "";
+  }
+}
+
+function credencialAdministrativaValida(req) {
+  const cabecalho = req.headers?.["x-admin-credencial"] || req.headers?.["X-Admin-Credencial"] || "";
+  try {
+    const recebida = Buffer.from(String(cabecalho), "base64").toString("utf8").normalize("NFKC");
+    const recebidaBuffer = Buffer.from(recebida);
+    const esperadaBuffer = Buffer.from(ADMIN_PASSWORD.normalize("NFKC"));
+    return recebidaBuffer.length === esperadaBuffer.length && crypto.timingSafeEqual(recebidaBuffer, esperadaBuffer);
+  } catch {
+    return false;
   }
 }
 
@@ -191,14 +204,32 @@ async function processarPatch(req, res, firebase, funcionario) {
   return responder(res, 200, { success: true, passagem: { id: passagemId, ...passagem } });
 }
 
+async function processarDelete(req, res, firebase, funcionario) {
+  const corpo = req.body || {};
+  const passagemId = String(corpo.passagemId || "");
+  const data = String(corpo.data || "");
+  if (!idValido(passagemId) || !dataValida(data)) {
+    return responder(res, 400, { success: false, message: MENSAGEM_ERRO });
+  }
+
+  const caminho = `${DB_PASSAGENS}/${funcionario.id}/${data.slice(0, 7)}/${passagemId}`;
+  const passagem = await firebase.obter(caminho);
+  if (!passagem || passagem.funcionarioId !== funcionario.id || passagem.data !== data) {
+    return responder(res, 404, { success: false, message: MENSAGEM_ERRO });
+  }
+
+  await firebase.remover(caminho);
+  return responder(res, 200, { success: true });
+}
+
 module.exports = async function handler(req, res) {
-  if (!["GET", "POST", "PATCH"].includes(req.method)) {
-    res.setHeader?.("Allow", "GET, POST, PATCH");
+  if (!["GET", "POST", "PATCH", "DELETE"].includes(req.method)) {
+    res.setHeader?.("Allow", "GET, POST, PATCH, DELETE");
     return responder(res, 405, { success: false, message: MENSAGEM_ERRO });
   }
 
   let corpo = req.body || {};
-  if (["POST", "PATCH"].includes(req.method) && typeof corpo === "string") {
+  if (["POST", "PATCH", "DELETE"].includes(req.method) && typeof corpo === "string") {
     try {
       corpo = JSON.parse(corpo || "{}");
     } catch {
@@ -208,11 +239,17 @@ module.exports = async function handler(req, res) {
   }
   const funcionarioId = String(req.method === "GET" ? req.query?.funcionarioId : corpo.funcionarioId || "");
   if (!idValido(funcionarioId)) return responder(res, 400, { success: false, message: MENSAGEM_ERRO });
+  if (req.method === "DELETE" && !credencialAdministrativaValida(req)) {
+    return responder(res, 401, { success: false, message: MENSAGEM_ERRO });
+  }
 
   try {
     const firebase = new FirebaseRest(FIREBASE_DATABASE_URL);
     const funcionario = await obterFuncionario(firebase, funcionarioId);
     if (!funcionario) return responder(res, 404, { success: false, message: MENSAGEM_ERRO });
+    if (req.method === "DELETE") {
+      return processarDelete(req, res, firebase, funcionario);
+    }
     if (req.method === "POST" && corpo.acao === "autenticar") {
       return senhaValida(String(corpo.senha || ""), funcionario)
         ? responder(res, 200, { success: true, funcionario: { id: funcionario.id, nome: funcionario.nome, sobrenome: funcionario.sobrenome } })
@@ -230,4 +267,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._internals = { dataValida, textoSeguro, textoOpcional, rotuloObra, diaSemana, listaPassagens, listaPeriodo, validarObra, senhaValida };
+module.exports._internals = { dataValida, textoSeguro, textoOpcional, rotuloObra, diaSemana, listaPassagens, listaPeriodo, validarObra, senhaValida, credencialAdministrativaValida };

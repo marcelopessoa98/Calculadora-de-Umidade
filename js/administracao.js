@@ -9,6 +9,7 @@ const IDADES_PADRAO = [1, 3, 7, 14, 28, 56, 63];
 const ITENS_POR_PAGINA = 10;
 
 let database = null;
+let adminCredencial = "";
 let clientes = [];
 let obras = [];
 let clientesCarregados = false;
@@ -138,6 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function configurarAcesso() {
   if (sessionStorage.getItem(ADMIN_ACCESS_KEY) === "sim") {
+    adminCredencial = ADMIN_PASSWORD;
     liberarAcesso();
     return;
   }
@@ -148,6 +150,7 @@ function configurarAcesso() {
     event.preventDefault();
 
     if (el.accessPassword.value === ADMIN_PASSWORD) {
+      adminCredencial = el.accessPassword.value;
       sessionStorage.setItem(ADMIN_ACCESS_KEY, "sim");
       liberarAcesso();
       return;
@@ -248,6 +251,7 @@ function registrarEventos() {
   configurarPaginacao(el.paginacaoFuncionariosPassagens, "funcionariosPassagens", renderizarFuncionariosPassagens);
   el.btnFiltrarPassagens.addEventListener("click", consultarPassagensExtras);
   el.btnExportarPassagensPdf.addEventListener("click", exportarPassagensPdf);
+  el.passagensAdminLista.addEventListener("click", tratarCliquePassagemAdmin);
   el.filtroPassagemFuncionario.addEventListener("input", () => {
     el.filtroPassagemFuncionarioId.value = resolverFuncionarioFiltro()?.id || "";
     invalidarRelatorioPassagens();
@@ -496,19 +500,68 @@ function renderizarPassagensAdmin(passagens) {
   el.estadoPassagensAdmin.classList.add("hidden");
   passagens.forEach((passagem) => {
     const article = document.createElement("article");
-    article.className = "grid gap-2 p-4 md:grid-cols-[130px_minmax(0,1fr)_40px_minmax(0,1fr)] md:items-center md:gap-3";
+    article.className = "grid gap-2 p-4 md:grid-cols-[130px_minmax(0,1fr)_40px_minmax(0,1fr)_44px] md:items-center md:gap-3";
     article.innerHTML = `
       <div><span class="text-[10px] font-black uppercase text-red-600 md:hidden">Quando</span><p class="text-sm font-black text-slate-900">${escapeHtml(formatarDataPassagem(passagem.data))}</p><p class="text-xs font-bold capitalize text-slate-400">${escapeHtml(passagem.diaSemana || diaSemanaPassagem(passagem.data))}</p></div>
       <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Origem</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.origemObra || "—")}</p></div>
       <div class="hidden text-center text-sky-600 md:block"><i class="fa-solid fa-arrow-right"></i></div>
       <div><span class="text-[10px] font-black uppercase text-slate-400 md:hidden">Destino</span><p class="break-words text-sm font-bold text-slate-700">${escapeHtml(passagem.destinoObra || "—")}</p></div>
-      <div class="rounded-xl border border-amber-100 bg-amber-50/70 p-3 md:col-span-4">
+      <button type="button" data-action="excluir-passagem" data-id="${escapeHtml(passagem.id)}" class="h-11 w-11 justify-self-end rounded-lg text-red-400 hover:bg-red-50 hover:text-red-700 disabled:cursor-wait disabled:opacity-50" aria-label="Excluir passagem extra"><i class="fa-solid fa-trash"></i></button>
+      <div class="rounded-xl border border-amber-100 bg-amber-50/70 p-3 md:col-span-5">
         <p class="text-[10px] font-black uppercase tracking-wider text-amber-700"><i class="fa-solid fa-note-sticky mr-1"></i>Observações do funcionário</p>
         <p class="mt-1 whitespace-pre-line break-words text-sm font-semibold text-slate-700">${escapeHtml(passagem.observacoes || "Sem observações informadas.")}</p>
       </div>
     `;
     el.passagensAdminLista.appendChild(article);
   });
+}
+
+function tratarCliquePassagemAdmin(event) {
+  const botao = event.target.closest('button[data-action="excluir-passagem"]');
+  if (!botao) return;
+  const passagem = passagensRelatorio.find((item) => item.id === botao.dataset.id);
+  if (passagem) excluirPassagemAdmin(passagem, botao);
+}
+
+async function excluirPassagemAdmin(passagem, botao) {
+  if (!consultaPassagensRelatorio) return;
+  const dataFormatada = formatarDataPassagem(passagem.data);
+  if (!confirm(`Excluir a passagem extra de ${dataFormatada}, de "${passagem.origemObra}" para "${passagem.destinoObra}"?`)) return;
+
+  botao.disabled = true;
+  botao.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  ocultarErroFiltroPassagens();
+  try {
+    const resposta = await fetch("/api/passagens-extras", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Admin-Credencial": codificarCredencialAdmin(adminCredencial),
+      },
+      body: JSON.stringify({
+        funcionarioId: consultaPassagensRelatorio.funcionario.id,
+        passagemId: passagem.id,
+        data: passagem.data,
+      }),
+    });
+    const resultado = await resposta.json().catch(() => null);
+    if (!resposta.ok || !resultado?.success) throw new Error("FALHA_EXCLUSAO");
+    passagensRelatorio = passagensRelatorio.filter((item) => item.id !== passagem.id);
+    renderizarPassagensAdmin(passagensRelatorio);
+    el.btnExportarPassagensPdf.classList.toggle("hidden", !passagensRelatorio.length);
+  } catch {
+    mostrarErroFiltroPassagens("Não foi possível excluir a passagem extra. Tente novamente.");
+    botao.disabled = false;
+    botao.innerHTML = '<i class="fa-solid fa-trash"></i>';
+  }
+}
+
+function codificarCredencialAdmin(valor) {
+  const bytes = new TextEncoder().encode(valor);
+  let binario = "";
+  bytes.forEach((byte) => { binario += String.fromCharCode(byte); });
+  return btoa(binario);
 }
 
 async function exportarPassagensPdf() {

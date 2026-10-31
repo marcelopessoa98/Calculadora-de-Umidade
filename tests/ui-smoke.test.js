@@ -188,6 +188,10 @@ async function prepararPagina(context) {
   });
   await context.route("**/api/passagens-extras*", async (rota) => {
     const requisicao = rota.request();
+    if (requisicao.method() === "DELETE") {
+      await rota.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+      return;
+    }
     if (requisicao.method() === "POST") {
       const passagem = requisicao.postDataJSON();
       if (passagem.acao === "autenticar") {
@@ -373,6 +377,18 @@ test("fluxos existentes e módulo Rompimentos funcionam sem overflow mobile", as
     const pdf = await downloadPdf;
     assert.match(pdf.suggestedFilename(), /^passagens-extras-paulo-santos-\d{4}-\d{2}-\d{2}-a-\d{4}-\d{2}-\d{2}\.pdf$/);
     assert.ok((await fs.stat(await pdf.path())).size > 1000);
+    page.once("dialog", (dialog) => dialog.accept());
+    const exclusaoPassagem = page.waitForRequest((requisicao) =>
+      requisicao.url().includes("/api/passagens-extras") && requisicao.method() === "DELETE",
+    );
+    await page.getByRole("button", { name: "Excluir passagem extra" }).click();
+    const requisicaoExclusao = await exclusaoPassagem;
+    const corpoExclusao = requisicaoExclusao.postDataJSON();
+    assert.equal(corpoExclusao.funcionarioId, "passagem-teste");
+    assert.equal(corpoExclusao.passagemId, "passagem1");
+    assert.equal(requisicaoExclusao.headers()["x-admin-credencial"], Buffer.from("Fujita010474").toString("base64"));
+    await page.locator("#estadoPassagensAdmin").getByText(/Nenhuma passagem extra encontrada/).waitFor();
+    assert.equal(await page.locator("#totalPassagensPeriodo").textContent(), "0");
 
     await page.locator('[data-admin-view="avisos"]:visible').first().click();
     await page.getByText("Reunião geral hoje às 16h.").waitFor();

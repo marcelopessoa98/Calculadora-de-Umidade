@@ -17,7 +17,7 @@ Leitura e gravação passam pela função server-side `api/passagens-extras.js`.
 
 ## Acompanhamento administrativo
 
-Cadastre primeiro a equipe e a senha individual em **Administração → Funcionários / Passagens**. A senha é derivada com PBKDF2 e somente o salt e o hash são armazenados. Funcionários antigos precisam receber uma senha antes de acessar o módulo. Depois, em **Administração → Passagens extras**, selecione o funcionário, a data inicial e a data final. A consulta mostra data, dia da semana, origem, destino, observações e total do período.
+Cadastre primeiro a equipe e a senha individual em **Administração → Funcionários / Passagens**. A senha é derivada com PBKDF2 e somente o salt e o hash são armazenados. Funcionários antigos precisam receber uma senha antes de acessar o módulo. Depois, em **Administração → Passagens extras**, selecione o funcionário, a data inicial e a data final. A consulta mostra data, dia da semana, origem, destino, observações e total do período. O administrador também pode excluir uma passagem pela ação de lixeira; a remoção exige confirmação e é validada pela API antes de apagar o registro.
 
 ## Estrutura no Firebase
 

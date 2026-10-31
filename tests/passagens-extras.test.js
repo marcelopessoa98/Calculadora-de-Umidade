@@ -52,3 +52,12 @@ test("aceita observações vazias e limita o tamanho", () => {
   assert.equal(_internals.textoOpcional("  visita   adicional  "), "visita adicional");
   assert.equal(_internals.textoOpcional("x".repeat(501)), null);
 });
+
+test("aceita somente a credencial administrativa para exclusão", () => {
+  const requisicao = (senha) => ({
+    headers: { "x-admin-credencial": Buffer.from(senha).toString("base64") },
+  });
+  assert.equal(_internals.credencialAdministrativaValida(requisicao("Fujita010474")), true);
+  assert.equal(_internals.credencialAdministrativaValida(requisicao("senha-incorreta")), false);
+  assert.equal(_internals.credencialAdministrativaValida({ headers: {} }), false);
+});
